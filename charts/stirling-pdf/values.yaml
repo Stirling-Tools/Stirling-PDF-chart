@@ -5,7 +5,7 @@ replicaCount: 1
 strategy:
   type: RollingUpdate
 image:
-  repository: frooodle/s-pdf
+  repository: stirlingtools/stirling-pdf
   # took Chart appVersion by default
   tag: ~
   pullPolicy: IfNotPresent

@@ -40,7 +40,7 @@ helm repo add stirling-pdf https://stirling-tools.github.io/Stirling-PDF-chart
 | envsFrom | list | `[]` | Environment variables from secrets or configmaps to add to the stirling-pdf pods |
 | extraArgs | list | `[]` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
-| image.repository | string | `"frooodle/s-pdf"` |  |
+| image.repository | string | `"stirlingtools/stirling-pdf"` |  |
 | image.tag | string | `nil` |  |
 | ingress | object | `{"annotations":{},"enabled":false,"hosts":[],"ingressClassName":null,"labels":{},"pathType":"ImplementationSpecific"}` | Ingress for load balancer |
 | ingress.annotations | object | `{}` | Stirling-pdf Ingress annotations |
