@@ -1,6 +1,6 @@
 # stirling-pdf-chart
 
-![Version: 1.2.0](https://img.shields.io/badge/Version-1.2.0-informational?style=flat-square) ![AppVersion: 0.33.1](https://img.shields.io/badge/AppVersion-0.33.1-informational?style=flat-square)
+![Version: 1.3.0](https://img.shields.io/badge/Version-1.3.0-informational?style=flat-square) ![AppVersion: 0.33.1](https://img.shields.io/badge/AppVersion-0.33.1-informational?style=flat-square)
 
 locally hosted web application that allows you to perform various operations on PDF files
 
@@ -17,6 +17,13 @@ locally hosted web application that allows you to perform various operations on 
 * <https://github.com/Stirling-Tools/Stirling-PDF-chart>
 
 ## Chart Repo
+
+### OCI
+```console
+helm install stirling-pdf oci://ghcr.io/stirling-tools/stirling-pdf-chart/stirling-pdf
+```
+
+### Helm repository
 
 Add the following repo to use the chart:
 
