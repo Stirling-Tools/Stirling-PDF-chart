@@ -90,7 +90,7 @@ spec:
             path: {{ .Values.rootPath}}
             port: http
 {{ toYaml .Values.probes.livenessHttpGetConfig | indent 12 }}
-{{ toYaml .Values.probes.liveness | indent 10 }}
+{{ toYaml (omit .Values.probes.liveness "enabled") | indent 10 }}
 {{- end }}
 {{- if .Values.probes.readiness.enabled }}
         readinessProbe:
@@ -98,7 +98,7 @@ spec:
             path: {{ .Values.rootPath}}
             port: http
 {{ toYaml .Values.probes.readinessHttpGetConfig | indent 12 }}
-{{ toYaml .Values.probes.readiness | indent 10 }}
+{{ toYaml (omit .Values.probes.readiness "enabled") | indent 10 }}
 {{- end }}
         volumeMounts:
 {{- if .Values.deployment.extraVolumeMounts }}
