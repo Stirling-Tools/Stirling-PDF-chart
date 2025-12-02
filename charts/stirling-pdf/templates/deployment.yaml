@@ -48,7 +48,7 @@ spec:
       {{- if .Values.deployment.initContainers }}
       initContainers:
         {{- toYaml .Values.deployment.initContainers | nindent 8 }}
-      {{- else if and (not .Values.securityContext.enabled) .Values.persistence.enabled }}
+      {{- else if .Values.persistence.enabled }}
       initContainers:
       - name: volume-permissions
         image: {{ template "stirlingpdf.volumePermissions.image" . }}
