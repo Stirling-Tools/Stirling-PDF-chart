@@ -22,16 +22,26 @@ rootPath: /
 
 # -- Environment variables to add to the stirling-pdf pods
 envs: []
-# - name: UI_APP_NAME
+# - name: UI_APPNAME
 #   value: "Stirling PDF"
-# - name: UI_HOME_DESCRIPTION
+# - name: UI_HOMEDESCRIPTION
 #   value: "Your locally hosted one-stop-shop for all your PDF needs."
-# - name: UI_APP_NAVBAR_NAME
+# - name: UI_APPNAMENAVBAR
 #   value: "Stirling PDF"
-# - name: ALLOW_GOOGLE_VISIBILITY
-#   value: "true"
-# - name: APP_LOCALE
+# - name: LANGS
 #   value: "en_GB"
+# - name: SYSTEM_DEFAULTLOCALE
+#   value: "en-GB"
+# - name: SECURITY_ENABLELOGIN
+#   value: "false"
+# - name: DISABLE_ADDITIONAL_FEATURES
+#   value: "false"
+# - name: FAT_DOCKER
+#   value: "true"
+# - name: SYSTEM_MAXFILESIZE
+#   value: "500"
+# - name: SYSTEM_GOOGLEVISIBILITY
+#   value: "true"
 
 # -- Environment variables from secrets or configmaps to add to the stirling-pdf pods
 envsFrom: []

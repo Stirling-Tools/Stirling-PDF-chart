@@ -87,7 +87,7 @@ spec:
 {{- if .Values.probes.liveness.enabled }}
         livenessProbe:
           httpGet:
-            path: {{ .Values.rootPath}}
+            path: {{ .Values.rootPath}}api/v1/info/status
             port: http
 {{ toYaml .Values.probes.livenessHttpGetConfig | indent 12 }}
 {{ toYaml (omit .Values.probes.liveness "enabled") | indent 10 }}
@@ -95,7 +95,7 @@ spec:
 {{- if .Values.probes.readiness.enabled }}
         readinessProbe:
           httpGet:
-            path: {{ .Values.rootPath}}
+            path: {{ .Values.rootPath}}api/v1/info/status
             port: http
 {{ toYaml .Values.probes.readinessHttpGetConfig | indent 12 }}
 {{ toYaml (omit .Values.probes.readiness "enabled") | indent 10 }}
