@@ -263,3 +263,18 @@ ingress:
   # -- For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
   # -- See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
   ingressClassName:
+
+# -- Horizontal Pod Autoscaler (autoscaling/v2). Requires resource requests on the Deployment.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  # -- When > 0, adds a memory utilization metric to the HPA
+  targetMemoryUtilizationPercentage: 0
+
+# -- Pod Disruption Budget for the Deployment. Use either minAvailable or maxUnavailable (not both).
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
