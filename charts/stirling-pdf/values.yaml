@@ -263,3 +263,44 @@ ingress:
   # -- For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
   # -- See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
   ingressClassName:
+
+# -- HTTPRoute (Gateway API) for load balancing.
+# When enabled, an HTTPRoute resource is rendered alongside (or instead of) the Ingress.
+httpRoute:
+  enabled: false
+  # -- Stirling-pdf HTTPRoute labels
+  labels:
+    {}
+    # dns: route53
+
+  # -- Stirling-pdf HTTPRoute annotations
+  annotations:
+    {}
+
+  # -- HTTPRoute parentRefs (the Gateway(s) this route attaches to).
+  # Must be provided if HTTPRoute is enabled.
+  # See https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways
+  parentRefs:
+    []
+    # - name: my-gateway
+    #   namespace: gateway-system
+    #   sectionName: http
+
+  # -- HTTPRoute hostnames. Must match the host the client requests.
+  hostnames:
+    []
+    # - stirling-pdf.example.com
+
+  # -- HTTPRoute rules. If empty, a default rule is rendered that
+  # routes all traffic to the chart's own Service on service.externalPort.
+  rules:
+    []
+    # - matches:
+    #     - path:
+    #         type: PathPrefix
+    #         value: /
+    #   timeouts:
+    #     request: 300s
+    #   backendRefs:
+    #     - name: stirling-pdf
+    #       port: 8080

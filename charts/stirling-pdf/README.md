@@ -41,6 +41,12 @@ helm repo add stirling-pdf https://docs.stirlingpdf.com/Stirling-PDF-chart
 | envs | list | `[]` | Environment variables to add to the stirling-pdf pods |
 | envsFrom | list | `[]` | Environment variables from secrets or configmaps to add to the stirling-pdf pods |
 | extraArgs | list | `[]` |  |
+| httpRoute | object | `{"annotations":{},"enabled":false,"hostnames":[],"labels":{},"parentRefs":[],"rules":[]}` | HTTPRoute (Gateway API) for load balancing. When enabled, an HTTPRoute resource is rendered alongside (or instead of) the Ingress. |
+| httpRoute.annotations | object | `{}` | Stirling-pdf HTTPRoute annotations |
+| httpRoute.hostnames | list | `[]` | HTTPRoute hostnames. Must match the host the client requests. |
+| httpRoute.labels | object | `{}` | Stirling-pdf HTTPRoute labels |
+| httpRoute.parentRefs | list | `[]` | HTTPRoute parentRefs (the Gateway(s) this route attaches to). Must be provided if HTTPRoute is enabled. See https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways |
+| httpRoute.rules | list | `[]` | HTTPRoute rules. If empty, a default rule is rendered that routes all traffic to the chart's own Service on service.externalPort. |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.registry | string | `"docker.stirlingpdf.com"` |  |
 | image.repository | string | `"stirlingtools/stirling-pdf"` |  |
