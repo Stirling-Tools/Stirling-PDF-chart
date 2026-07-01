@@ -68,8 +68,10 @@ spec:
         securityContext:
           {{- toYaml .Values.containerSecurityContext | nindent 10 }}
         env:
+        {{- $rootPath := .Values.rootPath | default "/" }}
         - name: SYSTEM_ROOTURIPATH
-          value: {{ .Values.rootPath}}
+          # Spring Boot rejects "/" as a context path: use "" for root, strip any trailing slash for subpaths
+          value: {{ if eq $rootPath "/" }}""{{ else }}{{ $rootPath | trimSuffix "/" | quote }}{{ end }}
 {{- if .Values.envs }}
 {{ toYaml .Values.envs | indent 8 }}
 {{- end }}
