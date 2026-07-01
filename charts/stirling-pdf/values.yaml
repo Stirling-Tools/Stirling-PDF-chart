@@ -20,28 +20,138 @@ commonLabels: {}
 # -- Rootpath for the application
 rootPath: /
 
-# -- Environment variables to add to the stirling-pdf pods
+# -- Environment variables to add to the stirling-pdf pods.
+# -- Any key from the settings file can be set as an env var: uppercase the dotted
+# -- path and join segments with "_" (e.g. security.oauth2.client.google.clientId ->
+# -- SECURITY_OAUTH2_CLIENT_GOOGLE_CLIENTID). For the full, authoritative list see
+# -- https://github.com/Stirling-Tools/Stirling-PDF/blob/main/app/core/src/main/resources/settings.yml.template
+# -- For secrets (passwords, client secrets, license keys) prefer envsFrom with a Secret.
 envs: []
-# - name: UI_APPNAME
+# --- Branding / UI ---
+# - name: UI_APPNAMENAVBAR                 # browser tab title + TOTP/2FA issuer label
 #   value: "Stirling PDF"
-# - name: UI_HOMEDESCRIPTION
-#   value: "Your locally hosted one-stop-shop for all your PDF needs."
-# - name: UI_APPNAMENAVBAR
-#   value: "Stirling PDF"
-# - name: LANGS
-#   value: "en_GB"
-# - name: SYSTEM_DEFAULTLOCALE
+# - name: UI_LOGOSTYLE                     # 'classic' or 'modern'
+#   value: "classic"
+# - name: UI_LANGUAGES                     # restrict languages; empty = all. e.g. "en_GB,de_DE"
+#   value: ""
+# - name: SYSTEM_DEFAULTLOCALE             # force default language, e.g. "en-GB". Empty = auto-detect
 #   value: "en-GB"
-# - name: SECURITY_ENABLELOGIN
-#   value: "false"
-# - name: DISABLE_ADDITIONAL_FEATURES
-#   value: "false"
-# - name: FAT_DOCKER
-#   value: "true"
-# - name: SYSTEM_MAXFILESIZE
+#
+# --- General system ---
+# - name: SYSTEM_FILEUPLOADLIMIT           # e.g. "100MB"; empty = no limit
+#   value: ""
+# - name: SYSTEM_MAXDPI                    # max DPI for PDF-to-image conversion
 #   value: "500"
-# - name: SYSTEM_GOOGLEVISIBILITY
+# - name: SYSTEM_GOOGLEVISIBILITY          # 'true' allows search engine indexing (robots.txt)
+#   value: "false"
+# - name: SYSTEM_SHOWUPDATE                # show when a new update is available
 #   value: "true"
+# - name: SYSTEM_ENABLEANALYTICS           # 'true'/'false'/'null' (prompt admin on first launch)
+#   value: "false"
+# - name: SYSTEM_CUSTOMHTMLFILES           # allow /customFiles/templates to override template HTML
+#   value: "false"
+# - name: SYSTEM_TESSDATADIR               # path to Tessdata (OCR) directory
+#   value: ""
+# - name: METRICS_ENABLED                  # expose /api/* info endpoints (health probes use these)
+#   value: "true"
+#
+# --- URLs / SSO callbacks / mobile scanner ---
+# - name: SYSTEM_BACKENDURL                # required for SAML/OAuth callbacks, e.g. https://api.example.com
+#   value: ""
+# - name: SYSTEM_FRONTENDURL               # used for invite email + share links, e.g. https://app.example.com
+#   value: ""
+# - name: SYSTEM_ENABLEMOBILESCANNER       # QR-code mobile upload (requires frontendUrl)
+#   value: "true"
+# - name: SYSTEM_CORSALLOWEDORIGINS        # comma-separated origins; empty = allow all (with credentials)
+#   value: ""
+#
+# --- Login & authentication ---
+# - name: SECURITY_ENABLELOGIN             # enable user accounts / login
+#   value: "false"
+# - name: SECURITY_LOGINMETHOD             # 'all', 'normal', 'oauth2' or 'saml2'
+#   value: "all"
+# - name: SECURITY_INITIALLOGIN_USERNAME   # bootstrap admin username (first launch)
+#   value: ""
+# - name: SECURITY_INITIALLOGIN_PASSWORD   # bootstrap admin password (use envsFrom Secret)
+#   value: ""
+# - name: SECURITY_OAUTH2_ENABLED
+#   value: "false"
+# - name: SECURITY_OAUTH2_ISSUER           # OpenID Connect discovery URL
+#   value: ""
+# - name: SECURITY_OAUTH2_CLIENTID
+#   value: ""
+# - name: SECURITY_OAUTH2_CLIENTSECRET     # use envsFrom Secret
+#   value: ""
+# - name: SECURITY_SAML2_ENABLED           # enterprise licence required
+#   value: "false"
+#
+# --- Custom (external) database - Pro/Enterprise ---
+# - name: SYSTEM_DATASOURCE_ENABLECUSTOMDATABASE
+#   value: "false"
+# - name: SYSTEM_DATASOURCE_TYPE           # 'postgresql' or 'h2'
+#   value: "postgresql"
+# - name: SYSTEM_DATASOURCE_HOSTNAME
+#   value: "localhost"
+# - name: SYSTEM_DATASOURCE_PORT
+#   value: "5432"
+# - name: SYSTEM_DATASOURCE_NAME
+#   value: "postgres"
+# - name: SYSTEM_DATASOURCE_USERNAME
+#   value: "postgres"
+# - name: SYSTEM_DATASOURCE_PASSWORD       # use envsFrom Secret
+#   value: "postgres"
+#
+# --- Mail (invites / notifications) ---
+# - name: MAIL_ENABLED
+#   value: "false"
+# - name: MAIL_HOST
+#   value: "smtp.example.com"
+# - name: MAIL_PORT
+#   value: "587"
+# - name: MAIL_USERNAME
+#   value: ""
+# - name: MAIL_PASSWORD                    # use envsFrom Secret
+#   value: ""
+# - name: MAIL_FROM
+#   value: ""
+#
+# --- Pro / Enterprise licence ---
+# - name: PREMIUM_ENABLED                  # enable Pro/Enterprise licence checks
+#   value: "false"
+# - name: PREMIUM_KEY                      # licence key (use envsFrom Secret)
+#   value: "00000000-0000-0000-0000-000000000000"
+#
+# --- AI engine (optional) ---
+# - name: AIENGINE_ENABLED
+#   value: "false"
+# - name: AIENGINE_URL
+#   value: "http://localhost:5001"
+#
+# --- MCP server (optional) ---
+# - name: MCP_ENABLED
+#   value: "false"
+# - name: MCP_AUTH_MODE                    # 'oauth' or 'apikey'
+#   value: "oauth"
+#
+# --- Disable specific tools / groups ---
+# - name: ENDPOINTS_TOREMOVE               # comma-separated, e.g. "img-to-pdf,remove-pages"
+#   value: ""
+# - name: ENDPOINTS_GROUPSTOREMOVE         # comma-separated, e.g. "LibreOffice,Automation"
+#   value: ""
+#
+# --- Docker image / entrypoint flags (not part of settings.yml) ---
+# - name: DISABLE_ADDITIONAL_FEATURES      # 'false' downloads the login/security jar at startup
+#   value: "false"
+# - name: FAT_DOCKER                       # 'true' when using the -fat image (all deps preinstalled)
+#   value: "false"
+# - name: INSTALL_BOOK_AND_ADVANCED_HTML_OPS  # install calibre for advanced HTML/book ops (non-fat)
+#   value: "false"
+# - name: PUID                             # run-as user id (must match securityContext.fsGroup)
+#   value: "1000"
+# - name: PGID                             # run-as group id
+#   value: "1000"
+# - name: UMASK
+#   value: "022"
 
 # -- Environment variables from secrets or configmaps to add to the stirling-pdf pods
 envsFrom: []
