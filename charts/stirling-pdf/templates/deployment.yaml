@@ -1,3 +1,7 @@
+{{- /* Subpath hosting is broken upstream in Stirling-PDF v2 (Spring Boot 4 / Jetty context-path regression): any non-root context path crashes the app. Guard until fixed; remove this block to re-enable. */}}
+{{- if ne (.Values.rootPath | default "/" | trimSuffix "/") "" }}
+{{- fail "rootPath subpath hosting is not supported on this Stirling-PDF version (upstream Spring Boot 4 context-path regression crashes the app under any sub-path). Only rootPath: / is supported for now." }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

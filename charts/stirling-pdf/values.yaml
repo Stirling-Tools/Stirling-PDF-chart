@@ -17,7 +17,8 @@ secret:
 commonLabels: {}
 # team_name: dev
 
-# -- Rootpath for the application
+# -- Rootpath for the application. Only "/" is supported at present; sub-path hosting
+# -- (e.g. "/stirling/") crashes the app on this version, so the chart rejects it.
 rootPath: /
 
 # -- Environment variables to add to the stirling-pdf pods.
