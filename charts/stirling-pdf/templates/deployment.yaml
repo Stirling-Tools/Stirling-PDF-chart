@@ -1,3 +1,7 @@
+{{- /* Subpath hosting is broken upstream in Stirling-PDF v2 (Spring Boot 4 / Jetty context-path regression): any non-root context path crashes the app. Guard until fixed; remove this block to re-enable. */}}
+{{- if ne (.Values.rootPath | default "/" | trimSuffix "/") "" }}
+{{- fail "rootPath subpath hosting is not supported on this Stirling-PDF version (upstream Spring Boot 4 context-path regression crashes the app under any sub-path). Only rootPath: / is supported for now." }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -68,8 +72,10 @@ spec:
         securityContext:
           {{- toYaml .Values.containerSecurityContext | nindent 10 }}
         env:
+        {{- $rootPath := .Values.rootPath | default "/" }}
         - name: SYSTEM_ROOTURIPATH
-          value: {{ .Values.rootPath}}
+          # Spring Boot rejects "/" as a context path: use "" for root, strip any trailing slash for subpaths
+          value: {{ if eq $rootPath "/" }}""{{ else }}{{ $rootPath | trimSuffix "/" | quote }}{{ end }}
 {{- if .Values.envs }}
 {{ toYaml .Values.envs | indent 8 }}
 {{- end }}
