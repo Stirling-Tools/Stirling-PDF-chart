@@ -17,16 +17,17 @@ secret:
 commonLabels: {}
 # team_name: dev
 
-# -- Rootpath for the application. Only "/" is supported at present; sub-path hosting
-# -- (e.g. "/stirling/") crashes the app on this version, so the chart rejects it.
+# Only "/" is supported at present: sub-path hosting (e.g. "/stirling/") crashes
+# the app on this version, so the chart rejects it.
+# -- Rootpath for the application
 rootPath: /
 
-# -- Environment variables to add to the stirling-pdf pods.
-# -- Any key from the settings file can be set as an env var: uppercase the dotted
-# -- path and join segments with "_" (e.g. security.oauth2.client.google.clientId ->
-# -- SECURITY_OAUTH2_CLIENT_GOOGLE_CLIENTID). For the full, authoritative list see
-# -- https://github.com/Stirling-Tools/Stirling-PDF/blob/main/app/core/src/main/resources/settings.yml.template
-# -- For secrets (passwords, client secrets, license keys) prefer envsFrom with a Secret.
+# Any key from the settings file can be set as an env var: uppercase the dotted
+# path and join segments with "_" (e.g. security.oauth2.client.google.clientId ->
+# SECURITY_OAUTH2_CLIENT_GOOGLE_CLIENTID). For the full, authoritative list see
+# https://github.com/Stirling-Tools/Stirling-PDF/blob/main/app/core/src/main/resources/settings.yml.template
+# For secrets (passwords, client secrets, license keys) prefer envsFrom with a Secret.
+# -- Environment variables to add to the stirling-pdf pods
 envs: []
 # --- Branding / UI ---
 # - name: UI_APPNAMENAVBAR                 # browser tab title + TOTP/2FA issuer label
