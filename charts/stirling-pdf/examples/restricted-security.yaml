@@ -1,0 +1,24 @@
+# Runs Stirling-PDF as its own non-root user (uid 1001), which passes the Kubernetes
+# Pod Security "restricted" standard. The bundled PostgreSQL, Valkey and S3 already comply.
+# helm install stirling-pdf stirling-pdf/stirling-pdf-chart -f restricted-security.yaml
+
+securityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    memory: 2Gi

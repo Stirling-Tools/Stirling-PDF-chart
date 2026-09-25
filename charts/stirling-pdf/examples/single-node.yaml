@@ -1,0 +1,23 @@
+# One Stirling-PDF pod with its embedded database, kept on a persistent volume.
+# Install: helm install stirling-pdf stirling-pdf/stirling-pdf-chart -f single-node.yaml
+
+persistence:
+  # Keeps /configs (settings, embedded database, keys) across pod restarts
+  enabled: true
+  size: 8Gi
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    memory: 2Gi
+
+# Uncomment to reach the app on a host name through your ingress controller
+# ingress:
+#   enabled: true
+#   ingressClassName: nginx
+#   pathType: Prefix
+#   hosts:
+#     - name: pdf.example.com
+#       path: /

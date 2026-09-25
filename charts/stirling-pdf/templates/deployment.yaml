@@ -1,3 +1,5 @@
+{{- include "stirlingpdf.checkValues" . }}
+{{- include "stirlingpdf.validate" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,9 +18,19 @@ spec:
   selector:
     matchLabels:
       {{- include "stirlingpdf.selectorLabels" . | nindent 6 }}
+  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   strategy:
+  {{- if .Values.strategy }}
 {{ toYaml .Values.strategy | indent 4 }}
+  {{- else if and .Values.persistence.enabled (not .Values.cluster.enabled) }}
+    # One pod owns the embedded database on the volume, so the old pod must stop first
+    type: Recreate
+    rollingUpdate: null
+  {{- else }}
+    type: RollingUpdate
+  {{- end }}
   revisionHistoryLimit: 10
   template:
     metadata:
@@ -37,15 +49,15 @@ spec:
       {{- end }}
       {{- if .Values.securityContext.enabled }}
       securityContext:
-        fsGroup: {{ .Values.securityContext.fsGroup }}
-        {{- if .Values.securityContext.runAsNonRoot }}
-        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
-        {{- end }}
-        {{- if .Values.securityContext.supplementalGroups }}
-        supplementalGroups: {{ .Values.securityContext.supplementalGroups }}
-        {{- end }}
-      {{- else if .Values.persistence.enabled }}
+        {{- toYaml (omit .Values.securityContext "enabled") | nindent 8 }}
+      {{- end }}
+      {{- $deps := include "stirlingpdf.dependencies" . }}
+      {{- $permissions := and (not .Values.securityContext.enabled) .Values.persistence.enabled }}
+      {{- $waitFor := and .Values.waitForDependencies.enabled $deps }}
+      {{- $nonRoot := include "stirlingpdf.nonRoot" . }}
+      {{- if or $permissions $waitFor $nonRoot .Values.deployment.initContainers }}
       initContainers:
+      {{- if $permissions }}
       - name: volume-permissions
         image: {{ template "stirlingpdf.volumePermissions.image" . }}
         imagePullPolicy: "{{ .Values.volumePermissions.image.pullPolicy }}"
@@ -56,20 +68,73 @@ spec:
         - mountPath: {{ .Values.persistence.path }}
           name: storage-volume
       {{- end }}
-{{- include "stirlingpdf.imagePullSecrets" . | indent 6 }}
+      {{- if $nonRoot }}
+      # The image's startup script links into /usr/local/bin and needs a passwd entry for its user
+      - name: prepare-non-root
+        image: {{ include "stirlingpdf.image" . | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.containerSecurityContext | nindent 10 }}
+        command:
+        - sh
+        - -c
+        - |
+          cp -rP /usr/local/bin/. /writable-bin/
+          {{- if .Values.deployment.arbitraryUid }}
+          cp /etc/passwd /writable-etc/passwd
+          id -un >/dev/null 2>&1 || echo "stirling:x:$(id -u):$(id -g)::/home/stirlingpdfuser:/bin/bash" >> /writable-etc/passwd
+          {{- end }}
+        volumeMounts:
+        - name: usr-local-bin
+          mountPath: /writable-bin
+        {{- if .Values.deployment.arbitraryUid }}
+        - name: passwd
+          mountPath: /writable-etc
+        {{- end }}
+      {{- end }}
+      {{- if $waitFor }}
+      # Holds the app back until its database, Valkey and S3 accept connections
+      - name: wait-for-dependencies
+        image: {{ include "stirlingpdf.image" . | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.containerSecurityContext | nindent 10 }}
+        command:
+        - bash
+        - -c
+        - |
+          for dep in {{ $deps }}; do
+            host=${dep%:*}; port=${dep##*:}; n=0
+            until timeout 3 bash -c "exec 3<>/dev/tcp/$host/$port" 2>/dev/null; do
+              [ $((n % 10)) -eq 0 ] && echo "waiting for $host:$port"
+              n=$((n + 1)); sleep 2
+            done
+            echo "$host:$port is up"
+          done
+        {{- with .Values.waitForDependencies.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.deployment.initContainers }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- end }}
+      {{- with (include "stirlingpdf.imagePullSecrets" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
       containers:
       - name: {{ .Chart.Name }}
-        {{- if .Values.image.sha }}
-        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}@sha256:{{ .Values.image.sha }}"
-        {{- else }}
-        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-        {{- end }}
+        image: {{ include "stirlingpdf.image" . | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         securityContext:
           {{- toYaml .Values.containerSecurityContext | nindent 10 }}
         env:
         - name: SYSTEM_ROOTURIPATH
           value: {{ .Values.rootPath}}
+{{- with (include "stirlingpdf.generatedEnv" . | trim) }}
+{{ . | indent 8 }}
+{{- end }}
 {{- if .Values.envs }}
 {{ toYaml .Values.envs | indent 8 }}
 {{- end }}
@@ -84,10 +149,19 @@ spec:
         ports:
         - name: http
           containerPort: 8080
+{{- if .Values.probes.startup.enabled }}
+        # Holds off liveness until boot finishes; otherwise the kubelet kills the JVM mid-startup
+        startupProbe:
+          httpGet:
+            path: {{ include "stirlingpdf.statusPath" . }}
+            port: http
+{{ toYaml .Values.probes.startupHttpGetConfig | indent 12 }}
+{{ toYaml (omit .Values.probes.startup "enabled") | indent 10 }}
+{{- end }}
 {{- if .Values.probes.liveness.enabled }}
         livenessProbe:
           httpGet:
-            path: {{ .Values.rootPath}}api/v1/info/status
+            path: {{ include "stirlingpdf.statusPath" . }}
             port: http
 {{ toYaml .Values.probes.livenessHttpGetConfig | indent 12 }}
 {{ toYaml (omit .Values.probes.liveness "enabled") | indent 10 }}
@@ -95,12 +169,37 @@ spec:
 {{- if .Values.probes.readiness.enabled }}
         readinessProbe:
           httpGet:
-            path: {{ .Values.rootPath}}api/v1/info/status
+            path: {{ include "stirlingpdf.statusPath" . }}
             port: http
 {{ toYaml .Values.probes.readinessHttpGetConfig | indent 12 }}
 {{ toYaml (omit .Values.probes.readiness "enabled") | indent 10 }}
 {{- end }}
+      {{- if .Values.deployment.preStopSleepSeconds }}
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sleep", "{{ .Values.deployment.preStopSleepSeconds }}"]
+      {{- end }}
+      {{- with .Values.resources }}
+        resources:
+{{ toYaml . | indent 10 }}
+      {{- end }}
         volumeMounts:
+        - name: storage-volume
+          mountPath: {{ .Values.persistence.path }}
+{{- if $nonRoot }}
+        - name: usr-local-bin
+          mountPath: /usr/local/bin
+{{- end }}
+{{- if .Values.deployment.arbitraryUid }}
+        - {name: passwd, mountPath: /etc/passwd, subPath: passwd, readOnly: true}
+        - {name: data-logs, mountPath: /logs}
+        - {name: data-customfiles, mountPath: /customFiles}
+        - {name: data-pipeline, mountPath: /pipeline}
+        - {name: data-storage, mountPath: /storage}
+        - {name: data-tmp, mountPath: /tmp/stirling-pdf}
+        - {name: data-home, mountPath: /home/stirlingpdfuser}
+{{- end }}
 {{- if .Values.deployment.extraVolumeMounts }}
         {{- toYaml .Values.deployment.extraVolumeMounts | nindent 8 }}
 {{- end }}
@@ -110,10 +209,6 @@ spec:
 {{- toYaml $spec | nindent 8 }}
 {{- end }}
 {{- end }}
-      {{- with .Values.resources }}
-        resources:
-{{ toYaml . | indent 10 }}
-      {{- end }}
     {{- with .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
@@ -126,11 +221,16 @@ spec:
       tolerations:
 {{ toYaml . | indent 8 }}
     {{- end }}
+    {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{ toYaml . | indent 8 }}
+    {{- end }}
     {{- if .Values.schedulerName }}
       schedulerName: {{ .Values.schedulerName }}
     {{- end }}
       serviceAccountName: {{ include "stirlingpdf.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      terminationGracePeriodSeconds: {{ .Values.deployment.terminationGracePeriodSeconds }}
       volumes:
       {{- if .Values.deployment.extraVolumes }}
       {{- toYaml .Values.deployment.extraVolumes | nindent 6 }}
@@ -141,4 +241,14 @@ spec:
           claimName: {{ .Values.persistence.existingClaim | default (include "stirlingpdf.fullname" .) }}
       {{- else }}
         emptyDir: {}
+      {{- end }}
+      {{- if $nonRoot }}
+      - name: usr-local-bin
+        emptyDir: {}
+      {{- end }}
+      {{- if .Values.deployment.arbitraryUid }}
+      {{- range list "passwd" "data-logs" "data-customfiles" "data-pipeline" "data-storage" "data-tmp" "data-home" }}
+      - name: {{ . }}
+        emptyDir: {}
+      {{- end }}
       {{- end }}

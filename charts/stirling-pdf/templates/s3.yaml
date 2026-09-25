@@ -1,0 +1,165 @@
+{{- include "stirlingpdf.checkValues" . }}
+{{- if .Values.s3.enabled }}
+{{- $name := include "stirlingpdf.componentName" (list . "s3") }}
+{{- $s3 := .Values.s3 }}
+{{- if not $s3.auth.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "stirlingpdf.componentLabels" (list . "s3") | nindent 4 }}
+  annotations:
+    # The data volume outlives an uninstall; a reinstall must find the same credentials
+    helm.sh/resource-policy: keep
+type: Opaque
+data:
+  root-user: {{ include "stirlingpdf.stableSecretValue" (dict "ctx" . "secret" $name "key" "root-user" "value" $s3.auth.rootUser "generate" (printf "stirling%s" (randAlphaNum 8 | lower))) | b64enc | quote }}
+  root-password: {{ include "stirlingpdf.stableSecretValue" (dict "ctx" . "secret" $name "key" "root-password" "value" $s3.auth.rootPassword "generate" (randAlphaNum 32)) | b64enc | quote }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "stirlingpdf.componentLabels" (list . "s3") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: s3
+    port: 9000
+    targetPort: s3
+  selector:
+    {{- include "stirlingpdf.componentSelectorLabels" (list . "s3") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "stirlingpdf.componentLabels" (list . "s3") | nindent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "stirlingpdf.componentSelectorLabels" (list . "s3") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "stirlingpdf.componentSelectorLabels" (list . "s3") | nindent 8 }}
+    spec:
+      {{- with $s3.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      {{- with (include "stirlingpdf.imagePullSecrets" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+      - name: s3
+        image: {{ include "stirlingpdf.componentImage" $s3.image | quote }}
+        imagePullPolicy: {{ $s3.image.pullPolicy }}
+        {{- with $s3.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        args: ["server", "/data"]
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "stirlingpdf.s3.secretName" . }}
+              key: root-user
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "stirlingpdf.s3.secretName" . }}
+              key: root-password
+        - name: HOME
+          value: /tmp
+        - name: MC_CONFIG_DIR
+          value: /tmp/.mc
+        - name: BUCKET
+          value: {{ $s3.bucket | quote }}
+        ports:
+        - name: s3
+          containerPort: 9000
+        # The app does not create its bucket, so create it once the server answers
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - sh
+              - -c
+              - |
+                for i in $(seq 1 60); do
+                  if mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; then
+                    mc mb --ignore-existing "local/$BUCKET" && exit 0
+                  fi
+                  sleep 2
+                done
+                exit 0
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: s3
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: s3
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 6
+        {{- with $s3.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      {{- if not $s3.persistence.enabled }}
+      - name: data
+        emptyDir: {}
+      {{- end }}
+      {{- with $s3.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $s3.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $s3.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if $s3.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        {{- include "stirlingpdf.componentSelectorLabels" (list . "s3") | nindent 8 }}
+    spec:
+      accessModes:
+      - {{ $s3.persistence.accessMode | quote }}
+      {{- if $s3.persistence.storageClass }}
+      storageClassName: {{ ternary "" $s3.persistence.storageClass (eq "-" $s3.persistence.storageClass) | quote }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ $s3.persistence.size | quote }}
+  {{- end }}
+{{- end }}

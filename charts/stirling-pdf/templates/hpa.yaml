@@ -1,0 +1,34 @@
+{{- include "stirlingpdf.checkValues" . }}
+{{- if .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "stirlingpdf.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "stirlingpdf.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "stirlingpdf.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+  {{- with .Values.autoscaling.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ . }}
+  {{- end }}
+  {{- with .Values.autoscaling.targetMemoryUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ . }}
+  {{- end }}
+{{- end }}

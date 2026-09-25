@@ -1,0 +1,55 @@
+# Several Stirling-PDF pods sharing a bundled PostgreSQL, Valkey and S3 server.
+# Good for trying multi-node or small installs; use multi-node-external.yaml for production.
+#
+# kubectl create secret generic stirling-licence --from-literal=premium-key=<your licence key>
+# helm install stirling-pdf stirling-pdf/stirling-pdf-chart -f multi-node-bundled.yaml
+
+replicaCount: 2
+
+cluster:
+  enabled: true
+
+# Cluster mode needs a Server or Enterprise licence
+premium:
+  enabled: true
+  existingSecret: stirling-licence
+
+postgresql:
+  enabled: true
+valkey:
+  enabled: true
+s3:
+  enabled: true
+
+# Pods keep nothing on disk in cluster mode, so no persistence for the app itself
+persistence:
+  enabled: false
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    memory: 2Gi
+
+# Keep one pod running during node drains
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Prefer different nodes for the pods
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: stirling-pdf-chart
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  pathType: Prefix
+  hosts:
+    - name: pdf.example.com
+      path: /

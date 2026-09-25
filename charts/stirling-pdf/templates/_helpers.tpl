@@ -60,6 +60,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Health endpoint path under rootPath, tolerating a missing or trailing slash
+*/}}
+{{- define "stirlingpdf.statusPath" -}}
+{{- printf "%s/api/v1/info/status" (.Values.rootPath | default "/" | trimSuffix "/") -}}
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "stirlingpdf.serviceAccountName" -}}

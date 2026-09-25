@@ -1,0 +1,150 @@
+{{- include "stirlingpdf.checkValues" . }}
+{{- if .Values.valkey.enabled }}
+{{- $name := include "stirlingpdf.componentName" (list . "valkey") }}
+{{- $vk := .Values.valkey }}
+{{- if and $vk.auth.enabled (not $vk.auth.existingSecret) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "stirlingpdf.componentLabels" (list . "valkey") | nindent 4 }}
+type: Opaque
+data:
+  {{ $vk.auth.secretKey }}: {{ include "stirlingpdf.stableSecretValue" (dict "ctx" . "secret" $name "key" $vk.auth.secretKey "value" $vk.auth.password "generate" (randAlphaNum 24)) | b64enc | quote }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "stirlingpdf.componentLabels" (list . "valkey") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: valkey
+    port: 6379
+    targetPort: valkey
+  selector:
+    {{- include "stirlingpdf.componentSelectorLabels" (list . "valkey") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "stirlingpdf.componentLabels" (list . "valkey") | nindent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "stirlingpdf.componentSelectorLabels" (list . "valkey") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "stirlingpdf.componentSelectorLabels" (list . "valkey") | nindent 8 }}
+    spec:
+      {{- with $vk.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      {{- with (include "stirlingpdf.imagePullSecrets" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+      - name: valkey
+        image: {{ include "stirlingpdf.componentImage" $vk.image | quote }}
+        imagePullPolicy: {{ $vk.image.pullPolicy }}
+        {{- with $vk.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if $vk.auth.enabled }}
+        env:
+        - name: VALKEY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "stirlingpdf.valkey.secretName" . }}
+              key: {{ $vk.auth.secretKey }}
+        - name: REDISCLI_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "stirlingpdf.valkey.secretName" . }}
+              key: {{ $vk.auth.secretKey }}
+        {{- end }}
+        # noeviction: every backplane key has a TTL, so an eviction policy could drop live locks
+        args:
+        - valkey-server
+        - --dir
+        - /data
+        - --maxmemory-policy
+        - noeviction
+        - --save
+        - ""
+        - --appendonly
+        - {{ ternary "yes" "no" $vk.persistence.enabled | quote }}
+        {{- if $vk.auth.enabled }}
+        - --requirepass
+        - $(VALKEY_PASSWORD)
+        {{- end }}
+        ports:
+        - name: valkey
+          containerPort: 6379
+        readinessProbe:
+          exec:
+            command: ["sh", "-c", "valkey-cli ping | grep -q PONG"]
+          periodSeconds: 5
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "valkey-cli ping | grep -qE 'PONG|LOADING'"]
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 6
+        {{- with $vk.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      {{- if not $vk.persistence.enabled }}
+      volumes:
+      - name: data
+        emptyDir: {}
+      {{- end }}
+      {{- with $vk.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $vk.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $vk.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if $vk.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        {{- include "stirlingpdf.componentSelectorLabels" (list . "valkey") | nindent 8 }}
+    spec:
+      accessModes:
+      - {{ $vk.persistence.accessMode | quote }}
+      {{- if $vk.persistence.storageClass }}
+      storageClassName: {{ ternary "" $vk.persistence.storageClass (eq "-" $vk.persistence.storageClass) | quote }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ $vk.persistence.size | quote }}
+  {{- end }}
+{{- end }}
