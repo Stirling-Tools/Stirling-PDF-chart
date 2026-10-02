@@ -311,7 +311,7 @@ Rendered before `envs`, so a user entry with the same name wins.
 {{- end }}
 
 {{/*
-"true" when the app container runs as a non-root user. The 3.0.0 image links helper scripts into
+"true" when the app container runs as a non-root user. The 3.x image links helper scripts into
 /usr/local/bin at startup, which only root can write, so the chart gives that path a writable copy.
 */}}
 {{- define "stirlingpdf.nonRoot" -}}

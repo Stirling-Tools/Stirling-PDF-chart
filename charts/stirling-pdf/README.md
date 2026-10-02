@@ -1,6 +1,6 @@
 # stirling-pdf-chart
 
-![Version: 4.0.0](https://img.shields.io/badge/Version-4.0.0-informational?style=flat-square) ![AppVersion: 3.0.0](https://img.shields.io/badge/AppVersion-3.0.0-informational?style=flat-square)
+![Version: 4.0.0](https://img.shields.io/badge/Version-4.0.0-informational?style=flat-square) ![AppVersion: 3.0.2](https://img.shields.io/badge/AppVersion-3.0.2-informational?style=flat-square)
 
 locally hosted web application that allows you to perform various operations on PDF files
 
@@ -204,18 +204,18 @@ set `sharedKeys.existingSecret`, `postgresql.auth.existingSecret`, `valkey.auth.
 
 ## Sizing and slow nodes
 
-Measured on a single k3s node with the 3.0.0 image, CPU limit equal to request, 4Gi memory limit.
+Measured on a single k3s node with the 3.0.2 image, CPU limit equal to request, 4Gi memory limit.
 "Ready" is the time from pod creation until the readiness probe passed; there were no restarts in
 any of these runs:
 
 | CPU | Ready after |
 |-----|-------------|
 | 2 | 20-30 s |
-| 1 | 38 s |
-| 0.5 | 69 s |
-| 0.25 | 126 s |
+| 1 | 40 s |
+| 0.5 | 61 s |
+| 0.25 | 140 s |
 | 0.15 | 232 s |
-| 0.1 | 349 s |
+| 0.1 | 353 s |
 
 The startup probe allows 10 s + 60 x 10 s = 610 s before the kubelet restarts the container, which
 covers even 0.1 CPU. Raise `probes.startup.failureThreshold` for slower nodes. Liveness and
@@ -245,7 +245,7 @@ Kubernetes Pod Security "restricted" requires, use
 image's own user). For platforms that assign a random user id, such as OpenShift, add
 `deployment.arbitraryUid: true`, see [`examples/openshift-arbitrary-uid.yaml`](examples/openshift-arbitrary-uid.yaml).
 
-The 3.0.0 image's startup script writes to `/usr/local/bin` and needs a passwd entry for the
+The 3.x image's startup script writes to `/usr/local/bin` and needs a passwd entry for the
 running user. When the pod runs as non-root the chart gives it a writable copy of `/usr/local/bin`,
 and `deployment.arbitraryUid` adds the passwd entry, so no image change is needed. A read-only root
 filesystem was not tested and is unlikely to work, because the startup script writes to several
@@ -258,7 +258,7 @@ The bundled PostgreSQL, Valkey and S3 always run as non-root and meet the "restr
 - Upgrade with your values file (`helm upgrade <release> stirling-pdf/stirling-pdf-chart -f my-values.yaml`)
   or with `--reset-then-reuse-values` (Helm 3.14 and later). Plain `--reuse-values` does not load the
   new settings' defaults and fails with a message saying so.
-- The app version moves to 3.0.0.
+- The app version moves to 3.0.2.
 - `persistence.path` now defaults to `/configs` and the volume is actually mounted there (3.x never
   mounted it). If you set `persistence.path: /tmp` yourself, change it to `/configs`.
 - With `persistence.enabled`, the Deployment switches from `RollingUpdate` to `Recreate` (see
@@ -341,7 +341,7 @@ the old volume. Recreate users and settings afterwards, or keep a copy of `/conf
 | podAnnotations | object | `{}` | Read more about kube2iam to provide access to s3 https://github.com/jtblin/kube2iam |
 | podDisruptionBudget | object | `{"enabled":false,"minAvailable":1}` | PodDisruptionBudget for the Stirling-PDF pods. Only useful with 2 or more replicas. |
 | podLabels | object | `{}` | ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/ |
-| postgresql | object | `{"affinity":{},"auth":{"database":"stirling","existingSecret":"","password":"","secretKey":"password","username":"stirling"},"containerSecurityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"enabled":false,"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"library/postgres","tag":"17-alpine"},"nodeSelector":{},"persistence":{"accessMode":"ReadWriteOnce","enabled":true,"size":"8Gi","storageClass":""},"podSecurityContext":{"fsGroup":70,"runAsGroup":70,"runAsNonRoot":true,"runAsUser":70,"seccompProfile":{"type":"RuntimeDefault"}},"resources":{},"tolerations":[]}` | Bundled PostgreSQL (official `postgres` image). Fine for small installs; use `externalDatabase` for a managed database. |
+| postgresql | object | `{"affinity":{},"auth":{"database":"stirling","existingSecret":"","password":"","secretKey":"password","username":"stirling"},"containerSecurityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"enabled":false,"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"library/postgres","tag":"18-alpine"},"nodeSelector":{},"persistence":{"accessMode":"ReadWriteOnce","enabled":true,"size":"8Gi","storageClass":""},"podSecurityContext":{"fsGroup":70,"runAsGroup":70,"runAsNonRoot":true,"runAsUser":70,"seccompProfile":{"type":"RuntimeDefault"}},"resources":{},"tolerations":[]}` | Bundled PostgreSQL (official `postgres` image). Fine for small installs; use `externalDatabase` for a managed database. |
 | postgresql.auth.existingSecret | string | `""` | Existing Secret holding the password |
 | postgresql.auth.password | string | `""` | Leave empty to generate one (kept across upgrades) |
 | postgresql.auth.secretKey | string | `"password"` | Key inside `existingSecret` |
@@ -412,7 +412,7 @@ the old volume. Recreate users and settings afterwards, or keep a copy of `/conf
 | strategy | object | `{}` | Deployment update strategy. Left empty, the chart picks `Recreate` for a single pod with a persistent volume (so two pods never open the same embedded database) and `RollingUpdate` otherwise. |
 | tolerations | list | `[]` |  |
 | topologySpreadConstraints | list | `[]` | Spread pods across nodes or zones, for example `[{maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app.kubernetes.io/instance: <release>}}}]` |
-| valkey | object | `{"affinity":{},"auth":{"enabled":true,"existingSecret":"","password":"","secretKey":"password"},"containerSecurityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"enabled":false,"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"valkey/valkey","tag":"8-alpine"},"nodeSelector":{},"persistence":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":""},"podSecurityContext":{"fsGroup":999,"runAsGroup":999,"runAsNonRoot":true,"runAsUser":999,"seccompProfile":{"type":"RuntimeDefault"}},"resources":{},"tolerations":[]}` | Bundled Valkey for cluster mode (official `valkey/valkey` image) |
+| valkey | object | `{"affinity":{},"auth":{"enabled":true,"existingSecret":"","password":"","secretKey":"password"},"containerSecurityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"enabled":false,"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"valkey/valkey","tag":"9-alpine"},"nodeSelector":{},"persistence":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":""},"podSecurityContext":{"fsGroup":999,"runAsGroup":999,"runAsNonRoot":true,"runAsUser":999,"seccompProfile":{"type":"RuntimeDefault"}},"resources":{},"tolerations":[]}` | Bundled Valkey for cluster mode (official `valkey/valkey` image) |
 | valkey.auth.password | string | `""` | Leave empty to generate one (kept across upgrades) |
 | valkey.persistence | object | `{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":""}` | Append-only file on a volume, so in-flight job state survives a Valkey restart |
 | valkey.podSecurityContext | object | `{"fsGroup":999,"runAsGroup":999,"runAsNonRoot":true,"runAsUser":999,"seccompProfile":{"type":"RuntimeDefault"}}` | The image's valkey user is 999 |

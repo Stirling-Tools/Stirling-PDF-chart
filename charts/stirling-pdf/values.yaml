@@ -368,7 +368,7 @@ postgresql:
   image:
     registry: docker.io
     repository: library/postgres
-    tag: "17-alpine"
+    tag: "18-alpine"
     pullPolicy: IfNotPresent
   auth:
     username: stirling
@@ -421,7 +421,7 @@ valkey:
   image:
     registry: docker.io
     repository: valkey/valkey
-    tag: "8-alpine"
+    tag: "9-alpine"
     pullPolicy: IfNotPresent
   auth:
     enabled: true

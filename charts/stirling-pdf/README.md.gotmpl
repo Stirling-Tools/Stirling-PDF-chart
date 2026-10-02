@@ -202,18 +202,18 @@ set `sharedKeys.existingSecret`, `postgresql.auth.existingSecret`, `valkey.auth.
 
 ## Sizing and slow nodes
 
-Measured on a single k3s node with the 3.0.0 image, CPU limit equal to request, 4Gi memory limit.
+Measured on a single k3s node with the 3.0.2 image, CPU limit equal to request, 4Gi memory limit.
 "Ready" is the time from pod creation until the readiness probe passed; there were no restarts in
 any of these runs:
 
 | CPU | Ready after |
 |-----|-------------|
 | 2 | 20-30 s |
-| 1 | 38 s |
-| 0.5 | 69 s |
-| 0.25 | 126 s |
+| 1 | 40 s |
+| 0.5 | 61 s |
+| 0.25 | 140 s |
 | 0.15 | 232 s |
-| 0.1 | 349 s |
+| 0.1 | 353 s |
 
 The startup probe allows 10 s + 60 x 10 s = 610 s before the kubelet restarts the container, which
 covers even 0.1 CPU. Raise `probes.startup.failureThreshold` for slower nodes. Liveness and
@@ -243,7 +243,7 @@ Kubernetes Pod Security "restricted" requires, use
 image's own user). For platforms that assign a random user id, such as OpenShift, add
 `deployment.arbitraryUid: true`, see [`examples/openshift-arbitrary-uid.yaml`](examples/openshift-arbitrary-uid.yaml).
 
-The 3.0.0 image's startup script writes to `/usr/local/bin` and needs a passwd entry for the
+The 3.x image's startup script writes to `/usr/local/bin` and needs a passwd entry for the
 running user. When the pod runs as non-root the chart gives it a writable copy of `/usr/local/bin`,
 and `deployment.arbitraryUid` adds the passwd entry, so no image change is needed. A read-only root
 filesystem was not tested and is unlikely to work, because the startup script writes to several
@@ -256,7 +256,7 @@ The bundled PostgreSQL, Valkey and S3 always run as non-root and meet the "restr
 - Upgrade with your values file (`helm upgrade <release> stirling-pdf/stirling-pdf-chart -f my-values.yaml`)
   or with `--reset-then-reuse-values` (Helm 3.14 and later). Plain `--reuse-values` does not load the
   new settings' defaults and fails with a message saying so.
-- The app version moves to 3.0.0.
+- The app version moves to 3.0.2.
 - `persistence.path` now defaults to `/configs` and the volume is actually mounted there (3.x never
   mounted it). If you set `persistence.path: /tmp` yourself, change it to `/configs`.
 - With `persistence.enabled`, the Deployment switches from `RollingUpdate` to `Recreate` (see
