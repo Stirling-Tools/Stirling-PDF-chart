@@ -1,9 +1,11 @@
 extraArgs:
   []
   # - --storage-timestamp-tolerance 1s
+# -- Number of Stirling-PDF pods. More than 1 needs `cluster.enabled: true`.
 replicaCount: 1
-strategy:
-  type: RollingUpdate
+# -- Deployment update strategy. Left empty, a single pod with a persistent volume gets `RollingUpdate`
+# with `maxSurge: 0`, so the old pod stops before the new one opens the same embedded database.
+strategy: {}
 image:
   registry: docker.stirlingpdf.com
   repository: stirlingtools/stirling-pdf
@@ -20,7 +22,8 @@ commonLabels: {}
 # -- Rootpath for the application
 rootPath: /
 
-# -- Environment variables to add to the stirling-pdf pods
+# -- Environment variables to add to the stirling-pdf pods. These are applied after the
+# variables the chart generates, so an entry here overrides a chart-generated one of the same name.
 envs: []
 # - name: UI_APPNAME
 #   value: "Stirling PDF"
@@ -42,6 +45,8 @@ envs: []
 #   value: "500"
 # - name: SYSTEM_GOOGLEVISIBILITY
 #   value: "true"
+# - name: JAVA_CUSTOM_OPTS
+#   value: "-XX:MaxRAMPercentage=60"
 
 # -- Environment variables from secrets or configmaps to add to the stirling-pdf pods
 envsFrom: []
@@ -79,6 +84,16 @@ deployment:
   #      - name: nginx-config
   #        readOnly: true
   #        mountPath: /etc/nginx
+  # -- Extra init containers, run after the chart's own init containers
+  initContainers: []
+  # -- Seconds a terminating pod keeps receiving no new traffic before the app is stopped.
+  # Gives Services and ingress controllers time to drop the pod, so rolling updates do not fail requests.
+  preStopSleepSeconds: 10
+  # -- Time allowed for a graceful shutdown (preStop sleep plus the app draining in-flight requests)
+  terminationGracePeriodSeconds: 60
+  # -- Set to true when the pod runs as a user id the image does not know, for example OpenShift's
+  # random UIDs. Adds a passwd entry for that id and writable copies of the image's data directories.
+  arbitraryUid: false
 
 # -- Pod annotations
 # -- ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -114,6 +129,11 @@ service:
   # -- from deployment above. Leave empty to use stirling-pdf directly.
   targetPort:
   nodePort:
+  # -- `ClientIP` pins each client to one pod, for clients that poll async jobs in cluster mode.
+  # Ingress controllers bypass this; use their sticky-cookie setting instead.
+  sessionAffinity: ""
+  # -- e.g. `{clientIP: {timeoutSeconds: 10800}}`
+  sessionAffinityConfig: {}
   annotations: {}
   labels: {}
 
@@ -125,20 +145,32 @@ serviceMonitor:
   # timeout: 60
   # interval: 60
 
+# -- CPU and memory for the Stirling-PDF container. The image sizes the Java heap from the memory
+# limit (55-70% of it), so always set a memory limit.
 resources: {}
 #  limits:
-#    cpu: 100m
-#    memory: 128Mi
+#    memory: 4Gi
 #  requests:
-#    cpu: 80m
-#    memory: 64Mi
+#    cpu: 500m
+#    memory: 2Gi
 
 probes:
+  # Startup probe: liveness and readiness only start once this passes, so a slow boot is never
+  # killed. The default budget (10s + 60 x 10s) covers small nodes.
+  startup:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 60
+  # -- Left empty, the startup probe uses `livenessHttpGetConfig`
+  startupHttpGetConfig: {}
   liveness:
     enabled: true
     initialDelaySeconds: 5
     periodSeconds: 10
-    timeoutSeconds: 1
+    timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
   livenessHttpGetConfig:
@@ -147,7 +179,7 @@ probes:
     enabled: true
     initialDelaySeconds: 5
     periodSeconds: 10
-    timeoutSeconds: 1
+    timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
   readinessHttpGetConfig:
@@ -160,10 +192,11 @@ serviceAccount:
   ## Annotations for the Service Account
   annotations: {}
 
-# -- UID/GID 1000 is the default user "stirling-pdf" used in
-# -- the container image starting in v0.8.0 and above. This
-# -- is required for local persistent storage. If your cluster
-# -- does not allow this, try setting securityContext: {}
+# -- Pod-level securityContext. Every key except `enabled` is passed through as-is.
+# UID/GID 1000 is the default user "stirling-pdf" used in
+# the container image starting in v0.8.0 and above. This
+# is required for local persistent storage. If your cluster
+# does not allow this, try setting securityContext: {}
 securityContext:
   enabled: true
   fsGroup: 1000
@@ -172,6 +205,7 @@ securityContext:
   # runAsNonRoot: true
   # supplementalGroups: [1000]
 
+# -- Container-level securityContext for the Stirling-PDF container
 containerSecurityContext: {}
 
 priorityClassName: ""
@@ -182,6 +216,10 @@ tolerations: []
 
 affinity: {}
 
+# -- Spread pods across nodes or zones, for example
+# `[{maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app.kubernetes.io/instance: <release>}}}]`
+topologySpreadConstraints: []
+
 persistence:
   enabled: false
   accessMode: ReadWriteOnce
@@ -189,7 +227,9 @@ persistence:
   labels:
     {}
     # name: value
-  path: /tmp
+  # -- Mount path of the storage volume. /configs holds settings.yml, the embedded
+  # database, keys and backups, so it is the directory worth persisting.
+  path: /configs
   ## A manually managed Persistent Volume and Claim
   ## Requires persistence.enabled: true
   ## If defined, PVC must be created manually before volume will be bound
@@ -214,13 +254,14 @@ persistence:
       path:
 
 # -- Init containers parameters:
-# -- volumePermissions: Change the owner of the persistent volume mountpoint to RunAsUser:fsGroup
+# -- volumePermissions: Change the owner of the persistent volume mountpoint to RunAsUser:fsGroup.
+# Only used when securityContext.enabled is false and persistence is on.
 volumePermissions:
   image:
     registry: docker.io
-    repository: bitnami/minideb
-    tag: buster
-    pullPolicy: Always
+    repository: library/busybox
+    tag: "1.37"
+    pullPolicy: IfNotPresent
     ## Optionally specify an array of imagePullSecrets.
     ## Secrets must be manually created in the namespace.
     ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
@@ -263,6 +304,106 @@ ingress:
   # -- For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
   # -- See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
   ingressClassName:
+
+# -- PodDisruptionBudget for the Stirling-PDF pods. Only useful with 2 or more replicas.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# -- HorizontalPodAutoscaler for the Stirling-PDF pods. Needs `cluster.enabled: true` and a metrics server.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# -- Licence settings (Stirling-PDF `premium.*`). A Server or Enterprise licence is required for
+# cluster mode, and for any processing when an external database (PostgreSQL) is used.
+premium:
+  # -- Turn licence checks on (sets PREMIUM_ENABLED)
+  enabled: false
+  # -- Licence key. Stored in a Secret created by the chart. Prefer `existingSecret`.
+  key: ""
+  # -- Name of an existing Secret that holds the licence key
+  existingSecret: ""
+  # -- Key inside `existingSecret` that holds the licence key
+  existingSecretKey: premium-key
+
+# -- Run Stirling-PDF as a multi-node cluster. Needs your own PostgreSQL, Valkey and S3 (`external*`)
+# plus a licence (`premium`); the chart wires the app's cluster settings from them.
+cluster:
+  enabled: false
+  # -- Prefix for transient job files in the S3 bucket, so the bucket can also hold stored files
+  artifactKeyPrefix: transient/
+  # -- Add sticky-cookie annotations for Traefik (on the Service) and ingress-nginx (on the Ingress).
+  # Async job results are only served by the pod that ran the job; other pods answer 410.
+  stickySessions: true
+
+# -- Keys every pod must share. Used when a database or cluster mode is on; otherwise the app keeps
+# its own keys in /configs. Left empty, the chart generates them once and keeps them across upgrades.
+sharedKeys:
+  # -- Existing Secret with the keys `credential-encryption-key` (base64 of 32 random bytes),
+  # `automatically-generated-key` and `automatically-generated-uuid`. Required for `helm template`/GitOps.
+  existingSecret: ""
+  # -- STIRLING_CREDENTIAL_ENCRYPTION_KEY: base64 of 32 random bytes (`openssl rand -base64 32`)
+  credentialEncryptionKey: ""
+  # -- AUTOMATICALLYGENERATED_KEY (any UUID)
+  automaticallyGeneratedKey: ""
+  # -- AUTOMATICALLYGENERATED_UUID (any UUID)
+  automaticallyGeneratedUuid: ""
+
+# -- Wait in an init container until the database and Valkey accept TCP connections, so the app
+# does not crash-loop while they start. Uses the Stirling-PDF image, so nothing extra is pulled.
+waitForDependencies:
+  enabled: true
+  resources: {}
+
+# -- Your PostgreSQL server, used when `host` or `jdbcUrl` is set
+externalDatabase:
+  host: ""
+  port: 5432
+  database: stirling
+  username: stirling
+  # -- Stored in a Secret created by the chart. Prefer `existingSecret`.
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: password
+  # -- Full JDBC URL, overrides host/port/database (e.g. to add `?sslmode=require`)
+  jdbcUrl: ""
+
+# -- Your Valkey or Redis server (standalone), used in cluster mode.
+# It must run with `maxmemory-policy noeviction`.
+externalValkey:
+  host: ""
+  port: 6379
+  # -- Database index, so two installs can share one server
+  database: 0
+  # -- Use TLS (`rediss://`)
+  tls: false
+  username: ""
+  # -- Stored in a Secret created by the chart. Prefer `existingSecret`.
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: password
+
+# -- Your S3-compatible bucket, used in cluster mode for job files (and for stored files with a licence)
+externalS3:
+  # -- Blank uses AWS's regional endpoint; otherwise the full URL, e.g. https://<account>.r2.cloudflarestorage.com
+  endpoint: ""
+  bucket: ""
+  region: us-east-1
+  # -- true for MinIO/Ceph style servers, false for AWS
+  pathStyleAccess: false
+  # -- Must be true when the endpoint resolves to a private IP (e.g. an in-cluster server)
+  allowPrivateEndpoints: false
+  # -- Leave both keys and `existingSecret` empty to use the AWS default credential chain (e.g. IRSA)
+  accessKey: ""
+  secretKey: ""
+  existingSecret: ""
+  existingSecretAccessKeyKey: access-key
+  existingSecretSecretKeyKey: secret-key
 
 # -- HTTPRoute (Gateway API) for load balancing.
 # When enabled, an HTTPRoute resource is rendered alongside (or instead of) the Ingress.

@@ -1,30 +1,61 @@
+{{- include "stirlingpdf.checkValues" . -}}
+{{- $svc := .Values.service.servicename | default (include "stirlingpdf.fullname" .) }}
+{{- $url := trimSuffix "/" (.Values.rootPath | default "/") }}
 ** Please be patient while the chart is being deployed **
 
 Get the stirlingpdf URL by running:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+
+  http{{ if .tls }}s{{ end }}://{{ .name }}{{ .path | default "/" }}
+{{- end }}
+
+OR
+{{- end }}
 
 {{- if contains "NodePort" .Values.service.type }}
 
-  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ template "stirlingpdf.fullname" . }})
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ $svc }})
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo http://$NODE_IP:$NODE_PORT/
+  echo http://$NODE_IP:$NODE_PORT{{ $url }}/
 
 {{- else if contains "LoadBalancer" .Values.service.type }}
 
-** Please ensure an external IP is associated to the {{ template "stirlingpdf.fullname" . }} service before proceeding **
-** Watch the status using: kubectl get svc --namespace {{ .Release.Namespace }} -w {{ template "stirlingpdf.fullname" . }} **
+** Please ensure an external IP is associated to the {{ $svc }} service before proceeding **
+** Watch the status using: kubectl get svc --namespace {{ .Release.Namespace }} -w {{ $svc }} **
 
-  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ template "stirlingpdf.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  echo http://$SERVICE_IP:{{ .Values.service.externalPort }}/
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ $svc }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo http://$SERVICE_IP:{{ .Values.service.externalPort }}{{ $url }}/
 
 OR
 
-  export SERVICE_HOST=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ template "stirlingpdf.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-  echo http://$SERVICE_HOST:{{ .Values.service.externalPort }}/
+  export SERVICE_HOST=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ $svc }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  echo http://$SERVICE_HOST:{{ .Values.service.externalPort }}{{ $url }}/
 
 {{- else if contains "ClusterIP"  .Values.service.type }}
 
-  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app={{ template "stirlingpdf.name" . }}" -l "release={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  echo http://127.0.0.1:8080/
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ template "stirlingpdf.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  echo http://127.0.0.1:8080{{ $url }}/
   kubectl port-forward $POD_NAME 8080:8080 --namespace {{ .Release.Namespace }}
 
+{{- end }}
+
+{{- if .Values.cluster.enabled }}
+
+Cluster mode: {{ if .Values.autoscaling.enabled }}{{ .Values.autoscaling.minReplicas }}-{{ .Values.autoscaling.maxReplicas }}{{ else }}{{ .Values.replicaCount }}{{ end }} Stirling-PDF pods share PostgreSQL, Valkey and S3.
+  - Change settings through values (envs), not the admin UI: the UI writes to one pod's local settings file.
+  - Async job results are served only by the pod that ran the job; keep sticky sessions on your ingress.
+{{- end }}
+{{- if include "stirlingpdf.sharedKeys.enabled" . }}
+
+Back up the Secret {{ include "stirlingpdf.sharedKeysSecretName" . }}: without it, encrypted data in the database cannot be read.
+{{- end }}
+{{- if and (include "stirlingpdf.db.enabled" .) (not .Values.premium.enabled) }}
+
+WARNING: a PostgreSQL database without a licence (premium.enabled) keeps the app in activation mode:
+processing requests return HTTP 402 until a Server or Enterprise licence is added.
+{{- end }}
+{{- if not (and .Values.resources .Values.resources.limits .Values.resources.limits.memory) }}
+
+TIP: set resources.limits.memory (2Gi or more). Without a limit the Java heap is sized from the node's memory.
 {{- end }}

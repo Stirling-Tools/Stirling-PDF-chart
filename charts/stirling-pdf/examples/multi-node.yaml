@@ -1,0 +1,33 @@
+# Needs a Server or Enterprise licence and your own PostgreSQL, Valkey (or Redis) and S3 bucket.
+# kubectl create secret generic stirling-licence --from-literal=premium-key=<licence key>
+# kubectl create secret generic stirling-db --from-literal=password=<db password>
+# kubectl create secret generic stirling-s3 --from-literal=access-key=<key id> --from-literal=secret-key=<secret>
+# helm install stirling-pdf stirling-pdf/stirling-pdf-chart -f multi-node.yaml
+
+replicaCount: 2
+
+cluster:
+  enabled: true
+
+premium:
+  enabled: true
+  existingSecret: stirling-licence
+
+externalDatabase:
+  host: postgres.example.internal
+  existingSecret: stirling-db
+
+externalValkey:
+  host: valkey.example.internal
+
+externalS3:
+  bucket: stirling-pdf
+  region: us-east-1
+  existingSecret: stirling-s3
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    memory: 2Gi

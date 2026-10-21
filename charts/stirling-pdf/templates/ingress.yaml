@@ -1,3 +1,4 @@
+{{- include "stirlingpdf.checkValues" . }}
 {{- if .Values.ingress.enabled }}
 {{- $servicePort := .Values.service.externalPort -}}
 {{- $serviceName := include "stirlingpdf.fullname" . -}}
@@ -14,7 +15,11 @@ kind: Ingress
 metadata:
   name: {{ include "stirlingpdf.fullname" . }}
   namespace: {{ .Release.Namespace }}
-  {{- with .Values.ingress.annotations }}
+  {{- $annotations := .Values.ingress.annotations | default dict }}
+  {{- if and .Values.cluster.enabled .Values.cluster.stickySessions }}
+  {{- $annotations = merge (dict) $annotations (dict "nginx.ingress.kubernetes.io/affinity" "cookie" "nginx.ingress.kubernetes.io/session-cookie-name" "stirling_node") }}
+  {{- end }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
