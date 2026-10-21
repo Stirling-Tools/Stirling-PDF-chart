@@ -331,7 +331,7 @@ premium:
   # -- Key inside `existingSecret` that holds the licence key
   existingSecretKey: premium-key
 
-# -- Run Stirling-PDF as a multi-node cluster. Needs PostgreSQL, Valkey and S3 (bundled or external)
+# -- Run Stirling-PDF as a multi-node cluster. Needs your own PostgreSQL, Valkey and S3 (`external*`)
 # plus a licence (`premium`); the chart wires the app's cluster settings from them.
 cluster:
   enabled: false
@@ -354,54 +354,13 @@ sharedKeys:
   # -- AUTOMATICALLYGENERATED_UUID (any UUID)
   automaticallyGeneratedUuid: ""
 
-# -- Wait in an init container until the database, Valkey and S3 accept TCP connections, so the app
+# -- Wait in an init container until the database and Valkey accept TCP connections, so the app
 # does not crash-loop while they start. Uses the Stirling-PDF image, so nothing extra is pulled.
 waitForDependencies:
   enabled: true
   resources: {}
 
-# -- Bundled PostgreSQL (official `postgres` image). Fine for small installs; use `externalDatabase`
-# for a managed database.
-postgresql:
-  enabled: false
-  image:
-    registry: docker.io
-    repository: library/postgres
-    tag: "18-alpine"
-    pullPolicy: IfNotPresent
-  auth:
-    username: stirling
-    database: stirling
-    # -- Leave empty to generate one (kept across upgrades)
-    password: ""
-    # -- Existing Secret holding the password
-    existingSecret: ""
-    # -- Key inside `existingSecret`
-    secretKey: password
-  persistence:
-    enabled: true
-    size: 8Gi
-    accessMode: ReadWriteOnce
-    # -- "-" sets storageClassName "" (no dynamic provisioning); empty uses the cluster default
-    storageClass: ""
-  resources: {}
-  # -- The alpine image's postgres user is 70
-  podSecurityContext:
-    fsGroup: 70
-    runAsUser: 70
-    runAsGroup: 70
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop: ["ALL"]
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-# -- An existing PostgreSQL server, used when `postgresql.enabled` is false and `host` or `jdbcUrl` is set
+# -- Your PostgreSQL server, used when `host` or `jdbcUrl` is set
 externalDatabase:
   host: ""
   port: 5432
@@ -414,44 +373,7 @@ externalDatabase:
   # -- Full JDBC URL, overrides host/port/database (e.g. to add `?sslmode=require`)
   jdbcUrl: ""
 
-# -- Bundled Valkey for cluster mode (official `valkey/valkey` image)
-valkey:
-  enabled: false
-  image:
-    registry: docker.io
-    repository: valkey/valkey
-    tag: "9-alpine"
-    pullPolicy: IfNotPresent
-  auth:
-    enabled: true
-    # -- Leave empty to generate one (kept across upgrades)
-    password: ""
-    existingSecret: ""
-    secretKey: password
-  # -- Append-only file on a volume, so in-flight job state survives a Valkey restart
-  persistence:
-    enabled: true
-    size: 1Gi
-    accessMode: ReadWriteOnce
-    storageClass: ""
-  resources: {}
-  # -- The image's valkey user is 999
-  podSecurityContext:
-    fsGroup: 999
-    runAsUser: 999
-    runAsGroup: 999
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop: ["ALL"]
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-# -- An existing Valkey or Redis server (standalone), used when `valkey.enabled` is false.
+# -- Your Valkey or Redis server (standalone), used in cluster mode.
 # It must run with `maxmemory-policy noeviction`.
 externalValkey:
   host: ""
@@ -466,52 +388,13 @@ externalValkey:
   existingSecret: ""
   existingSecretPasswordKey: password
 
-# -- Bundled S3-compatible object storage (Silo, a maintained MinIO fork). Fine for small
-# installs; use `externalS3` for AWS S3, Cloudflare R2, Ceph and similar.
-s3:
-  enabled: false
-  # -- Bucket to create and use
-  bucket: stirling-pdf
-  image:
-    registry: docker.io
-    repository: pgsty/silo
-    tag: "RELEASE.2026-09-16T00-00-00Z"
-    pullPolicy: IfNotPresent
-  auth:
-    # -- Leave empty to generate (kept across upgrades)
-    rootUser: ""
-    rootPassword: ""
-    # -- Existing Secret with the keys `root-user` and `root-password`
-    existingSecret: ""
-  persistence:
-    enabled: true
-    size: 10Gi
-    accessMode: ReadWriteOnce
-    storageClass: ""
-  resources: {}
-  podSecurityContext:
-    fsGroup: 1000
-    runAsUser: 1000
-    runAsGroup: 1000
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop: ["ALL"]
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-# -- An existing S3-compatible bucket, used when `s3.enabled` is false and `bucket` is set.
-# The bucket must already exist.
+# -- Your S3-compatible bucket, used in cluster mode for job files (and for stored files with a licence)
 externalS3:
   # -- Blank uses AWS's regional endpoint; otherwise the full URL, e.g. https://<account>.r2.cloudflarestorage.com
   endpoint: ""
   bucket: ""
   region: us-east-1
-  # -- true for MinIO/Silo/Ceph style servers, false for AWS
+  # -- true for MinIO/Ceph style servers, false for AWS
   pathStyleAccess: false
   # -- Must be true when the endpoint resolves to a private IP (e.g. an in-cluster server)
   allowPrivateEndpoints: false
