@@ -1,7 +1,7 @@
 extraArgs:
   []
   # - --storage-timestamp-tolerance 1s
-# -- Number of Stirling-PDF pods. More than 1 needs `cluster.enabled: true` (see the README).
+# -- Number of Stirling-PDF pods. More than 1 needs `cluster.enabled: true`.
 replicaCount: 1
 # -- Deployment update strategy. Left empty, a single pod with a persistent volume gets `RollingUpdate`
 # with `maxSurge: 0`, so the old pod stops before the new one opens the same embedded database.
@@ -130,7 +130,7 @@ service:
   targetPort:
   nodePort:
   # -- `ClientIP` pins each client to one pod, for clients that poll async jobs in cluster mode.
-  # Ingress controllers bypass this; use their sticky-cookie setting instead (see the README).
+  # Ingress controllers bypass this; use their sticky-cookie setting instead.
   sessionAffinity: ""
   # -- e.g. `{clientIP: {timeoutSeconds: 10800}}`
   sessionAffinityConfig: {}
@@ -146,7 +146,7 @@ serviceMonitor:
   # interval: 60
 
 # -- CPU and memory for the Stirling-PDF container. The image sizes the Java heap from the memory
-# limit (55-70% of it), so always set a memory limit. See the README for measured minimums.
+# limit (55-70% of it), so always set a memory limit.
 resources: {}
 #  limits:
 #    memory: 4Gi
@@ -156,7 +156,7 @@ resources: {}
 
 probes:
   # Startup probe: liveness and readiness only start once this passes, so a slow boot is never
-  # killed. The default budget (10s + 60 x 10s) covers small nodes; see the README for timings.
+  # killed. The default budget (10s + 60 x 10s) covers small nodes.
   startup:
     enabled: true
     initialDelaySeconds: 10
