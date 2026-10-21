@@ -2,6 +2,26 @@ apiVersion: v1
 entries:
   stirling-pdf-chart:
   - apiVersion: v2
+    appVersion: 3.2.0
+    created: "2026-10-21T13:06:30.348513619Z"
+    description: locally hosted web application that allows you to perform various
+      operations on PDF files
+    digest: fe3700310f5422606f5f983000afb39ddf6b54b66d034c6f041fefb8c0e788f9
+    home: https://github.com/Stirling-Tools/Stirling-PDF
+    keywords:
+    - stirling-pdf
+    - helm
+    - charts repo
+    maintainers:
+    - name: Stirling-Tools
+      url: https://github.com/Stirling-Tools/Stirling-PDF-chart
+    name: stirling-pdf-chart
+    sources:
+    - https://github.com/Stirling-Tools/Stirling-PDF-chart
+    urls:
+    - https://github.com/Stirling-Tools/Stirling-PDF-chart/releases/download/stirling-pdf-chart-4.0.0/stirling-pdf-chart-4.0.0.tgz
+    version: 4.0.0
+  - apiVersion: v2
     appVersion: 2.5.1
     created: "2026-10-21T11:27:58.553418672Z"
     description: locally hosted web application that allows you to perform various
@@ -461,4 +481,4 @@ entries:
     urls:
     - https://github.com/Stirling-Tools/Stirling-PDF-chart/releases/download/stirling-pdf-chart-1.1.0/stirling-pdf-chart-1.1.0.tgz
     version: 1.1.0
-generated: "2026-10-21T11:27:58.553535116Z"
+generated: "2026-10-21T13:06:30.348717683Z"
