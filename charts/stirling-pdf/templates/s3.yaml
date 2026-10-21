@@ -104,7 +104,8 @@ spec:
                   fi
                   sleep 2
                 done
-                exit 0
+                echo "could not create bucket $BUCKET" >&2
+                exit 1
         readinessProbe:
           httpGet:
             path: /minio/health/ready

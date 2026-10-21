@@ -13,8 +13,18 @@ Fails rendering on value combinations that cannot work, with a message saying wh
 {{- if and $v.postgresql.enabled (or $v.externalDatabase.host $v.externalDatabase.jdbcUrl) -}}
 {{- fail "Set either postgresql.enabled=true (bundled) or externalDatabase.host/jdbcUrl (external), not both." -}}
 {{- end -}}
-{{- if and $v.podDisruptionBudget.enabled (not $multi) -}}
-{{- fail "podDisruptionBudget.enabled=true with a single pod blocks node drains. Use it with replicaCount > 1 or autoscaling." -}}
+{{- $minPods := ternary (int $v.autoscaling.minReplicas) (int $v.replicaCount) (and $v.autoscaling.enabled true) -}}
+{{- if and $v.podDisruptionBudget.enabled (le $minPods 1) (not (hasKey $v.podDisruptionBudget "maxUnavailable")) -}}
+{{- fail "podDisruptionBudget.enabled=true with minAvailable and only one pod (replicaCount, or autoscaling.minReplicas) blocks node drains. Run 2 or more pods, or set podDisruptionBudget.maxUnavailable." -}}
+{{- end -}}
+{{- if $v.autoscaling.enabled -}}
+{{- $requests := (($v.resources | default dict).requests | default dict) -}}
+{{- if and $v.autoscaling.targetCPUUtilizationPercentage (not $requests.cpu) -}}
+{{- fail "autoscaling.targetCPUUtilizationPercentage needs resources.requests.cpu, or the HPA cannot measure CPU use and never scales." -}}
+{{- end -}}
+{{- if and $v.autoscaling.targetMemoryUtilizationPercentage (not $requests.memory) -}}
+{{- fail "autoscaling.targetMemoryUtilizationPercentage needs resources.requests.memory, or the HPA cannot measure memory use and never scales." -}}
+{{- end -}}
 {{- end -}}
 {{- if and $v.httpRoute.enabled (not $v.httpRoute.parentRefs) -}}
 {{- fail "httpRoute.enabled=true needs httpRoute.parentRefs (the Gateway the route attaches to)." -}}
