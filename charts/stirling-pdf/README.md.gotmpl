@@ -134,6 +134,22 @@ premium:
   existingSecret: stirling-licence
 ```
 
+## Gateway API (HTTPRoute)
+
+Instead of (or as well as) an Ingress, the chart can render a Gateway API `HTTPRoute`. Point
+`parentRefs` at an existing Gateway; without custom `rules`, the route sends every path under
+`rootPath` to the chart's Service:
+
+```yaml
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: my-gateway
+      namespace: gateway-system
+  hostnames:
+    - pdf.example.com
+```
+
 ## Persistence
 
 - **Single node**: the app keeps its settings, embedded database and keys in `/configs`. With
@@ -161,7 +177,9 @@ A job started with `?async=true` is only served by the pod that ran it. Other po
 through an ingress should therefore stick to one pod. In cluster mode the chart adds sticky-cookie
 annotations for Traefik (on the Service) and ingress-nginx (on the Ingress); turn this off with
 `cluster.stickySessions: false`. For other ingress controllers, enable cookie affinity yourself.
-Plain API calls (without `async=true`) work on any pod.
+These annotations do not reach a Gateway API route: with `httpRoute`, configure session persistence
+on your Gateway implementation, or put it in `httpRoute.rules` (`sessionPersistence`) if your
+Gateway supports it. Plain API calls (without `async=true`) work on any pod.
 
 If a pod is removed, results of the jobs it ran can no longer be fetched from the other pods,
 although the files stay in S3 until they expire. Clients have to run such a job again.

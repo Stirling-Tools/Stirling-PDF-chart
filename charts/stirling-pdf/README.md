@@ -136,6 +136,22 @@ premium:
   existingSecret: stirling-licence
 ```
 
+## Gateway API (HTTPRoute)
+
+Instead of (or as well as) an Ingress, the chart can render a Gateway API `HTTPRoute`. Point
+`parentRefs` at an existing Gateway; without custom `rules`, the route sends every path under
+`rootPath` to the chart's Service:
+
+```yaml
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: my-gateway
+      namespace: gateway-system
+  hostnames:
+    - pdf.example.com
+```
+
 ## Persistence
 
 - **Single node**: the app keeps its settings, embedded database and keys in `/configs`. With
@@ -163,7 +179,9 @@ A job started with `?async=true` is only served by the pod that ran it. Other po
 through an ingress should therefore stick to one pod. In cluster mode the chart adds sticky-cookie
 annotations for Traefik (on the Service) and ingress-nginx (on the Ingress); turn this off with
 `cluster.stickySessions: false`. For other ingress controllers, enable cookie affinity yourself.
-Plain API calls (without `async=true`) work on any pod.
+These annotations do not reach a Gateway API route: with `httpRoute`, configure session persistence
+on your Gateway implementation, or put it in `httpRoute.rules` (`sessionPersistence`) if your
+Gateway supports it. Plain API calls (without `async=true`) work on any pod.
 
 If a pod is removed, results of the jobs it ran can no longer be fetched from the other pods,
 although the files stay in S3 until they expire. Clients have to run such a job again.
@@ -328,6 +346,12 @@ the old volume. Recreate users and settings afterwards, or keep a copy of `/conf
 | externalValkey.password | string | `""` | Stored in a Secret created by the chart. Prefer `existingSecret`. |
 | externalValkey.tls | bool | `false` | Use TLS (`rediss://`) |
 | extraArgs | list | `[]` |  |
+| httpRoute | object | `{"annotations":{},"enabled":false,"hostnames":[],"labels":{},"parentRefs":[],"rules":[]}` | HTTPRoute (Gateway API) for load balancing. When enabled, an HTTPRoute resource is rendered alongside (or instead of) the Ingress. |
+| httpRoute.annotations | object | `{}` | Stirling-pdf HTTPRoute annotations |
+| httpRoute.hostnames | list | `[]` | HTTPRoute hostnames. Must match the host the client requests. |
+| httpRoute.labels | object | `{}` | Stirling-pdf HTTPRoute labels |
+| httpRoute.parentRefs | list | `[]` | HTTPRoute parentRefs (the Gateway(s) this route attaches to). Must be provided if HTTPRoute is enabled. See https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways |
+| httpRoute.rules | list | `[]` | HTTPRoute rules. If empty, a default rule is rendered that routes all traffic to the chart's own Service on service.externalPort. |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.registry | string | `"docker.stirlingpdf.com"` |  |
 | image.repository | string | `"stirlingtools/stirling-pdf"` |  |
