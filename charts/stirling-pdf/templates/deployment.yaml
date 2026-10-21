@@ -26,8 +26,10 @@ spec:
 {{ toYaml .Values.strategy | indent 4 }}
   {{- else if and .Values.persistence.enabled (not .Values.cluster.enabled) }}
     # One pod owns the embedded database on the volume, so the old pod must stop first
-    type: Recreate
-    rollingUpdate: null
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   {{- else }}
     type: RollingUpdate
   {{- end }}

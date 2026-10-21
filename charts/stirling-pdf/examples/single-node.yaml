@@ -2,7 +2,7 @@
 # Install: helm install stirling-pdf stirling-pdf/stirling-pdf-chart -f single-node.yaml
 
 persistence:
-  # Keeps /configs (settings, embedded database, keys) across pod restarts
+  # Keeps /configs (settings, embedded database, keys, stored files) across pod restarts
   enabled: true
   size: 8Gi
 

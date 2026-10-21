@@ -1,6 +1,6 @@
 # stirling-pdf-chart
 
-![Version: 4.0.0](https://img.shields.io/badge/Version-4.0.0-informational?style=flat-square) ![AppVersion: 3.0.2](https://img.shields.io/badge/AppVersion-3.0.2-informational?style=flat-square)
+![Version: 4.0.0](https://img.shields.io/badge/Version-4.0.0-informational?style=flat-square) ![AppVersion: 3.2.0](https://img.shields.io/badge/AppVersion-3.2.0-informational?style=flat-square)
 
 locally hosted web application that allows you to perform various operations on PDF files
 
@@ -90,6 +90,10 @@ Bundled services are single-pod StatefulSets with their own volume, built from o
 (`postgres`, `valkey/valkey`) and [Silo](https://github.com/pgsty/silo) for S3. They have no
 replication or backups; for production use managed services.
 
+Downloads of files users store on the server are redirects to a presigned S3 URL. With the bundled
+S3 that URL uses the in-cluster service name, which a browser cannot reach, so use `externalS3`
+with a publicly reachable endpoint when users store files.
+
 `cluster.enabled: true` switches the app into multi-node mode. The chart then sets every
 `CLUSTER_*`, `SYSTEM_DATASOURCE_*` and `STORAGE_S3_*` variable from whichever mode you chose, so you
 do not set those yourself. It also adds `POD_IP` and a node id (the pod name) to each pod.
@@ -135,9 +139,10 @@ premium:
 ## Persistence
 
 - **Single node**: the app keeps its settings, embedded database and keys in `/configs`. With
-  `persistence.enabled: true` that directory is a PersistentVolumeClaim. The Deployment then uses
-  the `Recreate` strategy, because two pods cannot open the same embedded database (a rolling update
-  would leave the new pod crash-looping on "The file is locked").
+  `persistence.enabled: true` that directory is a PersistentVolumeClaim, and files users store on the
+  server go to `/configs/storage` on the same volume. Updates use `maxSurge: 0`, so the old pod stops
+  before the new one starts, because two pods cannot open the same embedded database (the new pod
+  would crash-loop on "The file is locked").
 - **Multi-node**: all shared state lives in PostgreSQL, Valkey and S3, so each pod gets a fresh
   `/configs` and `persistence` stays off. The chart refuses `persistence.enabled` with more than one
   pod unless the volume is `ReadWriteMany`.
@@ -204,18 +209,18 @@ set `sharedKeys.existingSecret`, `postgresql.auth.existingSecret`, `valkey.auth.
 
 ## Sizing and slow nodes
 
-Measured on a single k3s node with the 3.0.2 image, CPU limit equal to request, 4Gi memory limit.
+Measured on a single k3s node with the 3.2.0 image, CPU limit equal to request, 4Gi memory limit.
 "Ready" is the time from pod creation until the readiness probe passed; there were no restarts in
 any of these runs:
 
 | CPU | Ready after |
 |-----|-------------|
-| 2 | 20-30 s |
-| 1 | 40 s |
-| 0.5 | 61 s |
-| 0.25 | 140 s |
-| 0.15 | 232 s |
-| 0.1 | 353 s |
+| 2 | 21 s |
+| 1 | 41 s |
+| 0.5 | 81 s |
+| 0.25 | 151 s |
+| 0.15 | 275 s |
+| 0.1 | 444 s |
 
 The startup probe allows 10 s + 60 x 10 s = 610 s before the kubelet restarts the container, which
 covers even 0.1 CPU. Raise `probes.startup.failureThreshold` for slower nodes. Liveness and
@@ -258,11 +263,13 @@ The bundled PostgreSQL, Valkey and S3 always run as non-root and meet the "restr
 - Upgrade with your values file (`helm upgrade <release> stirling-pdf/stirling-pdf-chart -f my-values.yaml`)
   or with `--reset-then-reuse-values` (Helm 3.14 and later). Plain `--reuse-values` does not load the
   new settings' defaults and fails with a message saying so.
-- The app version moves to 3.0.2.
+- The app version moves to 3.2.0.
 - `persistence.path` now defaults to `/configs` and the volume is actually mounted there (3.x never
   mounted it). If you set `persistence.path: /tmp` yourself, change it to `/configs`.
-- With `persistence.enabled`, the Deployment switches from `RollingUpdate` to `Recreate` (see
-  [Persistence](#persistence)). The upgrade handles the switch.
+- With `persistence.enabled`, updates stop the old pod before starting the new one (`maxSurge: 0`,
+  see [Persistence](#persistence)).
+- Server-side file storage is on by default from app 3.2.0. With `persistence.enabled` the files go
+  to `/configs/storage` on the volume; without it they are lost when the pod restarts.
 - A startup probe was added and probe timeouts went from 1 s to 5 s. This fixes pods being killed
   while still booting on small nodes (issue #7503).
 - `resources` now applies to the Stirling-PDF container even when sidecars are configured.
@@ -409,7 +416,7 @@ the old volume. Recreate users and settings afterwards, or keep a copy of `/conf
 | sharedKeys.automaticallyGeneratedUuid | string | `""` | AUTOMATICALLYGENERATED_UUID (any UUID) |
 | sharedKeys.credentialEncryptionKey | string | `""` | STIRLING_CREDENTIAL_ENCRYPTION_KEY: base64 of 32 random bytes (`openssl rand -base64 32`) |
 | sharedKeys.existingSecret | string | `""` | Existing Secret with the keys `credential-encryption-key` (base64 of 32 random bytes), `automatically-generated-key` and `automatically-generated-uuid`. Required for `helm template`/GitOps. |
-| strategy | object | `{}` | Deployment update strategy. Left empty, the chart picks `Recreate` for a single pod with a persistent volume (so two pods never open the same embedded database) and `RollingUpdate` otherwise. |
+| strategy | object | `{}` | Deployment update strategy. Left empty, a single pod with a persistent volume gets `RollingUpdate` with `maxSurge: 0`, so the old pod stops before the new one opens the same embedded database. |
 | tolerations | list | `[]` |  |
 | topologySpreadConstraints | list | `[]` | Spread pods across nodes or zones, for example `[{maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app.kubernetes.io/instance: <release>}}}]` |
 | valkey | object | `{"affinity":{},"auth":{"enabled":true,"existingSecret":"","password":"","secretKey":"password"},"containerSecurityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"enabled":false,"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"valkey/valkey","tag":"9-alpine"},"nodeSelector":{},"persistence":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":""},"podSecurityContext":{"fsGroup":999,"runAsGroup":999,"runAsNonRoot":true,"runAsUser":999,"seccompProfile":{"type":"RuntimeDefault"}},"resources":{},"tolerations":[]}` | Bundled Valkey for cluster mode (official `valkey/valkey` image) |

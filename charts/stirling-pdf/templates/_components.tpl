@@ -141,6 +141,10 @@ Rendered before `envs`, so a user entry with the same name wins.
 {{- define "stirlingpdf.generatedEnv" -}}
 {{- $v := .Values -}}
 {{- $app := include "stirlingpdf.appSecretName" . -}}
+{{- if $v.persistence.enabled }}
+- name: STORAGE_LOCAL_BASEPATH
+  value: {{ printf "%s/storage" $v.persistence.path | quote }}
+{{- end }}
 {{- if include "stirlingpdf.db.enabled" . }}
 - name: SYSTEM_DATASOURCE_ENABLECUSTOMDATABASE
   value: "true"

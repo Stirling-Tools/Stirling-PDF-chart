@@ -3,8 +3,8 @@ extraArgs:
   # - --storage-timestamp-tolerance 1s
 # -- Number of Stirling-PDF pods. More than 1 needs `cluster.enabled: true` (see the README).
 replicaCount: 1
-# -- Deployment update strategy. Left empty, the chart picks `Recreate` for a single pod with a
-# persistent volume (so two pods never open the same embedded database) and `RollingUpdate` otherwise.
+# -- Deployment update strategy. Left empty, a single pod with a persistent volume gets `RollingUpdate`
+# with `maxSurge: 0`, so the old pod stops before the new one opens the same embedded database.
 strategy: {}
 image:
   registry: docker.stirlingpdf.com
