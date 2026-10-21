@@ -44,6 +44,10 @@ spec:
         {{- if .Values.securityContext.supplementalGroups }}
         supplementalGroups: {{ .Values.securityContext.supplementalGroups }}
         {{- end }}
+      {{- end }}
+      {{- if .Values.deployment.initContainers }}
+      initContainers:
+        {{- toYaml .Values.deployment.initContainers | nindent 8 }}
       {{- else if .Values.persistence.enabled }}
       initContainers:
       - name: volume-permissions

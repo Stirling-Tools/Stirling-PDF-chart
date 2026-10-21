@@ -63,6 +63,19 @@ deployment:
   #      secretName: nginx-config
   # -- Additional volumes to mount
   extraVolumeMounts: []
+  # -- Custom initContainers specification
+  # If specified, these initContainers will be used instead of the default
+  # volume-permissions initContainer. This allows full control over the
+  # initContainer configuration.
+  # NOTE: When this is set, it completely overrides the default initContainer
+  # behavior. Make sure to include any necessary volume permission setup if needed.
+  initContainers: []
+  #  - name: custom-init
+  #    image: busybox:latest
+  #    command: ['sh', '-c', 'echo Initializing...']
+  #    volumeMounts:
+  #      - name: storage-volume
+  #        mountPath: /tmp
   # -- sidecarContainers for the stirling-pdf
   # -- Can be used to add a proxy to the pod that does
   # -- scanning for secrets, signing, authentication, validation
