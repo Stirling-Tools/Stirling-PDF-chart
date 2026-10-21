@@ -1,0 +1,26 @@
+# Needs a Server or Enterprise licence:
+# kubectl create secret generic stirling-licence --from-literal=premium-key=<licence key>
+# helm install stirling-pdf stirling-pdf/stirling-pdf-chart -f multi-node.yaml
+
+replicaCount: 2
+
+cluster:
+  enabled: true
+
+premium:
+  enabled: true
+  existingSecret: stirling-licence
+
+postgresql:
+  enabled: true
+valkey:
+  enabled: true
+s3:
+  enabled: true
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    memory: 2Gi

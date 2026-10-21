@@ -128,7 +128,7 @@ helm repo add stirling-pdf https://docs.stirlingpdf.com/Stirling-PDF-chart
 | s3.auth.rootUser | string | `""` | Leave empty to generate (kept across upgrades) |
 | s3.bucket | string | `"stirling-pdf"` | Bucket to create and use |
 | secret.labels | object | `{}` |  |
-| securityContext | object | `{"enabled":true,"fsGroup":1000}` | Pod-level securityContext. Every key except `enabled` is passed through as-is. UID/GID 1000 is the default user "stirling-pdf" used in the container image starting in v0.8.0 and above. This is required for local persistent storage. If your cluster does not allow this, try setting securityContext: {} See examples/restricted-security.yaml for a Pod Security "restricted" setup. |
+| securityContext | object | `{"enabled":true,"fsGroup":1000}` | Pod-level securityContext. Every key except `enabled` is passed through as-is. UID/GID 1000 is the default user "stirling-pdf" used in the container image starting in v0.8.0 and above. This is required for local persistent storage. If your cluster does not allow this, try setting securityContext: {} |
 | service.annotations | object | `{}` |  |
 | service.externalPort | int | `8080` |  |
 | service.externalTrafficPolicy | string | `"Local"` |  |

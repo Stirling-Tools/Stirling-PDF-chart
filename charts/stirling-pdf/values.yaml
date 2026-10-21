@@ -197,7 +197,6 @@ serviceAccount:
 # the container image starting in v0.8.0 and above. This
 # is required for local persistent storage. If your cluster
 # does not allow this, try setting securityContext: {}
-# See examples/restricted-security.yaml for a Pod Security "restricted" setup.
 securityContext:
   enabled: true
   fsGroup: 1000
