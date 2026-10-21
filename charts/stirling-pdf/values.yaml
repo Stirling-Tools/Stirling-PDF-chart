@@ -164,8 +164,8 @@ probes:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 60
-  startupHttpGetConfig:
-    scheme: HTTP
+  # -- Left empty, the startup probe uses `livenessHttpGetConfig`
+  startupHttpGetConfig: {}
   liveness:
     enabled: true
     initialDelaySeconds: 5

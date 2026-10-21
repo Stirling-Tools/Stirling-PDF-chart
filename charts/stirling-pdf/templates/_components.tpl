@@ -136,7 +136,7 @@ The given value, else the one in the live Secret, else a new one, so secrets sur
 
 {{/*
 Environment the chart derives from the database, cluster, S3 and licence settings.
-Rendered before `envs`, so a user entry with the same name wins.
+A user `envs` entry with the same name replaces the generated one.
 */}}
 {{- define "stirlingpdf.generatedEnv" -}}
 {{- $v := .Values -}}
@@ -322,5 +322,5 @@ Rendered before `envs`, so a user entry with the same name wins.
 {{- $pod := ternary .Values.securityContext dict (and (kindIs "map" .Values.securityContext) (.Values.securityContext.enabled | default false)) -}}
 {{- $ctr := .Values.containerSecurityContext | default dict -}}
 {{- $uid := $ctr.runAsUser | default $pod.runAsUser -}}
-{{- if or $ctr.runAsNonRoot $pod.runAsNonRoot (and $uid (ne (int $uid) 0)) }}true{{ end -}}
+{{- if or .Values.deployment.arbitraryUid $ctr.runAsNonRoot $pod.runAsNonRoot (and $uid (ne (int $uid) 0)) }}true{{ end -}}
 {{- end }}

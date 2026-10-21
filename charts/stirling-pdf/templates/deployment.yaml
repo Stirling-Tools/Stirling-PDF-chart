@@ -22,7 +22,8 @@ spec:
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   strategy:
-  {{- if .Values.strategy }}
+  {{- $plainRolling := and (eq (len .Values.strategy) 1) (eq (toString .Values.strategy.type) "RollingUpdate") }}
+  {{- if and .Values.strategy (not (and $plainRolling .Values.persistence.enabled (not .Values.cluster.enabled))) }}
 {{ toYaml .Values.strategy | indent 4 }}
   {{- else if and .Values.persistence.enabled (not .Values.cluster.enabled) }}
     # One pod owns the embedded database on the volume, so the old pod must stop first
@@ -134,8 +135,12 @@ spec:
         env:
         - name: SYSTEM_ROOTURIPATH
           value: {{ .Values.rootPath}}
-{{- with (include "stirlingpdf.generatedEnv" . | trim) }}
-{{ . | indent 8 }}
+{{- $userEnvNames := list }}
+{{- range .Values.envs }}{{ $userEnvNames = append $userEnvNames .name }}{{ end }}
+{{- range (include "stirlingpdf.generatedEnv" . | trim | fromYamlArray) }}
+{{- if not (has .name $userEnvNames) }}
+{{ list . | toYaml | indent 8 }}
+{{- end }}
 {{- end }}
 {{- if .Values.envs }}
 {{ toYaml .Values.envs | indent 8 }}
@@ -157,7 +162,7 @@ spec:
           httpGet:
             path: {{ include "stirlingpdf.statusPath" . }}
             port: http
-{{ toYaml .Values.probes.startupHttpGetConfig | indent 12 }}
+{{ toYaml (merge (dict) .Values.probes.startupHttpGetConfig .Values.probes.livenessHttpGetConfig) | indent 12 }}
 {{ toYaml (omit .Values.probes.startup "enabled") | indent 10 }}
 {{- end }}
 {{- if .Values.probes.liveness.enabled }}
@@ -187,8 +192,12 @@ spec:
 {{ toYaml . | indent 10 }}
       {{- end }}
         volumeMounts:
+{{- $userMountsPath := false }}
+{{- range .Values.deployment.extraVolumeMounts }}{{ if eq (trimSuffix "/" .mountPath) (trimSuffix "/" $.Values.persistence.path) }}{{ $userMountsPath = true }}{{ end }}{{ end }}
+{{- if not $userMountsPath }}
         - name: storage-volume
           mountPath: {{ .Values.persistence.path }}
+{{- end }}
 {{- if $nonRoot }}
         - name: usr-local-bin
           mountPath: /usr/local/bin

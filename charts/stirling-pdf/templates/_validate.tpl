@@ -13,6 +13,9 @@ Fails rendering on value combinations that cannot work, with a message saying wh
 {{- if and $v.postgresql.enabled (or $v.externalDatabase.host $v.externalDatabase.jdbcUrl) -}}
 {{- fail "Set either postgresql.enabled=true (bundled) or externalDatabase.host/jdbcUrl (external), not both." -}}
 {{- end -}}
+{{- if and $v.podDisruptionBudget.enabled (not $multi) -}}
+{{- fail "podDisruptionBudget.enabled=true with a single pod blocks node drains. Use it with replicaCount > 1 or autoscaling." -}}
+{{- end -}}
 {{- if and $v.httpRoute.enabled (not $v.httpRoute.parentRefs) -}}
 {{- fail "httpRoute.enabled=true needs httpRoute.parentRefs (the Gateway the route attaches to)." -}}
 {{- end -}}

@@ -286,6 +286,14 @@ The bundled PostgreSQL, Valkey and S3 always run as non-root and meet the "restr
   mounted it). If you set `persistence.path: /tmp` yourself, change it to `/configs`.
 - With `persistence.enabled`, updates stop the old pod before starting the new one (`maxSurge: 0`,
   see [Persistence](#persistence)).
+- If you mounted your own volume at `/configs` through `deployment.extraVolumeMounts`, the chart
+  keeps your mount and skips its own.
+- Turning on `postgresql` or `externalDatabase` on an install that already has data makes the chart
+  supply shared keys, which replace the ones in `/configs`. Copy the contents of
+  `/configs/credential-encryption.key` into `sharedKeys.credentialEncryptionKey` (or your
+  `sharedKeys.existingSecret`) first, or credentials stored in the app can no longer be decrypted.
+- The volume settings of the bundled PostgreSQL, Valkey and S3 (`persistence.*`) cannot be changed
+  after install: Kubernetes does not allow edits to a StatefulSet's volume templates.
 - Server-side file storage is on by default from app 3.2.0. With `persistence.enabled` the files go
   to `/configs/storage` on the volume; without it they are lost when the pod restarts.
 - A startup probe was added and probe timeouts went from 1 s to 5 s. This fixes pods being killed
@@ -404,7 +412,7 @@ the old volume. Recreate users and settings afterwards, or keep a copy of `/conf
 | probes.startup.periodSeconds | int | `10` |  |
 | probes.startup.successThreshold | int | `1` |  |
 | probes.startup.timeoutSeconds | int | `5` |  |
-| probes.startupHttpGetConfig.scheme | string | `"HTTP"` |  |
+| probes.startupHttpGetConfig | object | `{}` | Left empty, the startup probe uses `livenessHttpGetConfig` |
 | replicaCount | int | `1` | Number of Stirling-PDF pods. More than 1 needs `cluster.enabled: true` (see the README). |
 | resources | object | `{}` | CPU and memory for the Stirling-PDF container. The image sizes the Java heap from the memory limit (55-70% of it), so always set a memory limit. See the README for measured minimums. |
 | rootPath | string | `"/"` | Rootpath for the application |
