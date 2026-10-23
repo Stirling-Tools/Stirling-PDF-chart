@@ -1,6 +1,6 @@
 ---
 name: '🚀 Enhancement Request'
-about: Suggest an enhancement to external-dns
+about: Suggest an enhancement to Stirling-PDF-chart
 title: ''
 labels: '🚀 enhancement'
 assignees: ''
