@@ -26,7 +26,7 @@ helm repo add stirling-pdf https://stirling-tools.github.io/Stirling-PDF-chart
 
 * Please review the [Code of Conduct](.github/CODE_OF_CONDUCT.md) for guidelines
     on ensuring everyone has the best experience interacting with the community.
-* We welcome and encourage contributions to this project !
+* We welcome and encourage contributions to this project!
     Please review the [contributing](.github/CONTRIBUTING.md) doc for submitting
     issues/a guide on submitting pull requests and helping out.
 
